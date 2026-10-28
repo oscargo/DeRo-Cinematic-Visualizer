@@ -26,8 +26,17 @@ class Settings:
     title_font: str = "Sans"
     title_bold: bool = False
     title_italic: bool = False
-    title_uppercase: bool = True
+    title_uppercase: bool = False
     title_color: str = "#f8f9fd"
+    artist: str = ""
+    artist_size: float = 0.015
+    artist_x: float = 0.5
+    artist_y: float = 0.825
+    artist_font: str = "Sans"
+    artist_bold: bool = False
+    artist_italic: bool = False
+    artist_uppercase: bool = False
+    artist_color: str = "#f8f9fd"
     spectrum_height: float = 0.068
     dust_count: int = 130
     reactive_fraction: float = 0.25
@@ -233,20 +242,23 @@ class Renderer:
                 xx=round(center+sign*xoff)
                 g.rounded_rectangle((xx-barw//2, round(baseline-height), xx+barw//2, baseline), radius=barw//2,fill=(240,246,255,220))
         g.line((center-sw/2,baseline+2,center+sw/2,baseline+2),fill=(240,245,255,115),width=max(1,round(h/1080)))
-        if s.title:
-            font=self.title_font()
-            title=s.title.upper() if s.title_uppercase else s.title
-            g.text((w*s.title_x,h*s.title_y),title,font=font,anchor='mm',fill=s.title_color)
+        for row in ('title','artist'):
+            text=getattr(s,row)
+            if not text:continue
+            font=self.title_font(row)
+            if getattr(s,row+'_uppercase'):text=text.upper()
+            g.text((w*getattr(s,row+'_x'),h*getattr(s,row+'_y')),text,font=font,
+                   anchor='mm',fill=getattr(s,row+'_color'))
         return Image.alpha_composite(img,overlay).convert('RGB')
 
-    def title_font(self):
+    def title_font(self,row="title"):
         s=self.s
-        size=max(1,round(s.height*s.title_size))
-        family={'Sans':'DejaVuSans','Serif':'DejaVuSerif','Mono':'DejaVuSansMono'}.get(s.title_font,'DejaVuSans')
-        italic='Italic' if s.title_font=='Serif' else 'Oblique'
-        suffix=('-Bold'+italic if s.title_italic else '-Bold') if s.title_bold else ('-'+italic if s.title_italic else '')
-        windows={'Sans':'arial','Serif':'times','Mono':'cour'}[s.title_font]
-        windows+=('bi' if s.title_bold and s.title_italic else 'bd' if s.title_bold else 'i' if s.title_italic else '')
+        size=max(1,round(s.height*getattr(s,row+'_size')))
+        family={'Sans':'DejaVuSans','Serif':'DejaVuSerif','Mono':'DejaVuSansMono'}.get(getattr(s,row+'_font'),'DejaVuSans')
+        italic='Italic' if getattr(s,row+'_font')=='Serif' else 'Oblique'
+        suffix=('-Bold'+italic if getattr(s,row+'_italic') else '-Bold') if getattr(s,row+'_bold') else ('-'+italic if getattr(s,row+'_italic') else '')
+        windows={'Sans':'arial','Serif':'times','Mono':'cour'}[getattr(s,row+'_font')]
+        windows+=('bi' if getattr(s,row+'_bold') and getattr(s,row+'_italic') else 'bd' if getattr(s,row+'_bold') else 'i' if getattr(s,row+'_italic') else '')
         candidates=[family+suffix+'.ttf',os.path.join(os.environ.get('WINDIR','C:/Windows'),'Fonts',windows+'.ttf')]
         for candidate in candidates:
             try:return ImageFont.truetype(candidate,size)

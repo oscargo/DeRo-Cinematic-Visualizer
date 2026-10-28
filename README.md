@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.9 — Studio Workflow
+# DeRo Cinematic Visualizer v0.1.10 — Song & Artist
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.10`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.11`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo-Cinematic-Visualizer-vMAJOR.MINOR.PATCH-Feature-Name`.
-This release: `DeRo-Cinematic-Visualizer-v0.1.9-Studio-Workflow.zip`.
+This release: `DeRo-Cinematic-Visualizer-v0.1.10-Song-and-Artist.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -115,3 +115,20 @@ Click anywhere on the playback timeline to seek to that position and start playb
 drag to continuously reposition. This leaves selection-loop mode and plays from the
 clicked position to the song end without altering the export range. Preview playback
 remains silent; the exported video contains music.
+
+## v0.1.10 — Song & Artist
+The first text row is the song name; the second is the artist name. Each row has
+independent typeface, size, bold/italic, capitalization, color, and position controls,
+including position arrows. Both are retained in `.dero` projects. Existing project
+settings remain intact; older projects receive a blank artist row.
+
+Choosing a music file reads its title and artist tags through **ffprobe** (normally
+included beside FFmpeg). It reads no album or other fields. Missing titles fall back
+to the audio filename; missing artists remain blank. If ffprobe is unavailable,
+manual entry still works. Edit either name freely after loading. Opening a saved
+project preserves those edits and does not overwrite them with metadata.
+
+New project saves, Save As, MP4 exports, and PNG saves suggest **Artist - Song**.
+If one name is blank, only the available name is used; both blank gives Untitled.
+Windows-forbidden filename characters are replaced safely. Save continues writing
+to the current project path; use Save As to rename it after editing names.

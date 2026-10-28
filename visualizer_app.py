@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.9 — Studio Workflow.
+"""DeRo Cinematic Visualizer v0.1.10 — Song & Artist.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview is silent; exports include audio.
@@ -16,14 +16,14 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, colorchooser, font as tkfont
 from PIL import Image, ImageTk
 from visualizer_core import Settings, Renderer, audio_features
-from audio_io import load_audio
+from audio_io import load_audio, read_metadata, suggested_name
 from export_video import export
 from project_io import DEFAULTS, validate_settings, save_project, load_project
 
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.9 - Studio Workflow')
+        self.root.title('DeRo Cinematic Visualizer v0.1.10 - Song & Artist')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -38,6 +38,7 @@ class Application:
         self.project_path=None
         self.pending_selection=None
         self.layout_job=None
+        self.metadata_pending_path=None
         self.status=tk.StringVar(value='Select an audio file. Requires FFmpeg available on PATH.')
         self.position=tk.DoubleVar(value=0)
         self.selection_start=tk.DoubleVar(value=0)
@@ -61,7 +62,8 @@ class Application:
         self.saved_project_state=self.project_state()
         self.root.protocol('WM_DELETE_WINDOW',self.close_project)
         for key in ('title','title_size','title_x','title_y','title_font','title_bold','title_italic',
-                    'title_uppercase','title_color','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
+                    'title_uppercase','title_color','artist','artist_size','artist_x','artist_y','artist_font',
+                    'artist_bold','artist_italic','artist_uppercase','artist_color','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
             self.project_vars[key].trace_add('write',self.schedule_layout_preview)
         root.after(150,self.poll)
 
@@ -129,7 +131,7 @@ class Application:
         ttk.Label(brand,text='DeRo  /  Cinematic Visualizer',style='Brand.TLabel').pack(anchor='w')
         ttk.Label(brand,text='Shape the sound. Set the atmosphere.',style='Subtitle.TLabel').pack(anchor='w',pady=(4,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.pack(side='right',padx=(12,0))
-        ttk.Label(project_actions,text='STUDIO WORKFLOW  /  v0.1.9',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='SONG & ARTIST  /  v0.1.10',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -175,7 +177,7 @@ class Application:
         field('Background image / optional',self.background)
         ttk.Button(controls,text='Choose background...',style='Image.TButton',command=self.browse_background).pack(fill='x',pady=(6,2))
         section('02  /  TITLE & LAYOUT')
-        field('Display title',self.title)
+        field('Song name / first row',self.title)
         field('Typeface',self.title_font,('Sans','Serif','Mono'))
         styles=ttk.Frame(controls);styles.pack(fill='x',pady=8)
         for label,var in (('Bold',self.title_bold),('Italic',self.title_italic),('Caps',self.title_uppercase)):
@@ -195,6 +197,17 @@ class Application:
         numeric('Title Y (%)',self.title_y,0,100)
         arrows('title')
         ttk.Button(controls,text='Reset title layout',command=lambda:self.reset_layout('title')).pack(fill='x',pady=(7,0))
+        field('Artist name / second row',self.artist)
+        field('Artist typeface',self.artist_font,('Sans','Serif','Mono'))
+        artist_styles=ttk.Frame(controls);artist_styles.pack(fill='x',pady=8)
+        for label,var in (('Bold',self.artist_bold),('Italic',self.artist_italic),('Caps',self.artist_uppercase)):
+            ttk.Checkbutton(artist_styles,text=label,variable=var).pack(side='left')
+        ttk.Button(controls,text='Artist color...',command=lambda:self.choose_title_color('artist')).pack(fill='x')
+        numeric('Artist size (% height)',self.artist_size,.5,12,.1)
+        numeric('Artist X (%)',self.artist_x,0,100)
+        numeric('Artist Y (%)',self.artist_y,0,100)
+        arrows('artist')
+        ttk.Button(controls,text='Reset artist layout',command=lambda:self.reset_layout('artist')).pack(fill='x',pady=(7,0))
         section('03  /  SPECTRUM')
         numeric('Width (%)',self.spectrum_width,10,100)
         width_buttons=ttk.Frame(controls);width_buttons.pack(fill='x',pady=(7,0))
@@ -284,9 +297,10 @@ class Application:
         if self.renderer is None:return
         try:
             values=validate_settings({key:var.get() for key,var in self.project_vars.items()})
-            for key in ('title','title_font','title_bold','title_italic','title_uppercase','title_color'):
+            for key in ('title','title_font','title_bold','title_italic','title_uppercase','title_color',
+                        'artist','artist_font','artist_bold','artist_italic','artist_uppercase','artist_color'):
                 setattr(self.renderer.s,key,values[key])
-            for key in ('title_size','title_x','title_y','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
+            for key in ('title_size','title_x','title_y','artist_size','artist_x','artist_y','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
                 setattr(self.renderer.s,key,values[key]/100)
             self.display_frame()
         except (ValueError,tk.TclError):pass
@@ -303,12 +317,16 @@ class Application:
         except (ValueError,tk.TclError):self.status.set('Enter a valid spectrum width first.')
 
     def reset_layout(self,target):
-        keys=('title_x','title_y','title_size') if target=='title' else ('spectrum_x','spectrum_y','spectrum_width','spectrum_height')
+        keys=tuple(target+'_'+key for key in ('x','y','size')) if target in ('title','artist') else ('spectrum_x','spectrum_y','spectrum_width','spectrum_height')
         for key in keys:self.project_vars[key].set(DEFAULTS[key])
 
-    def choose_title_color(self):
-        color=colorchooser.askcolor(color=self.title_color.get(),parent=self.root,title='Title color')[1]
-        if color:self.title_color.set(color)
+    def choose_title_color(self,row='title'):
+        var=self.project_vars[row+'_color']
+        color=colorchooser.askcolor(color=var.get(),parent=self.root,title='Text color')[1]
+        if color:var.set(color)
+
+    def filename_stem(self):
+        return suggested_name(self.artist.get(),self.title.get())
 
     def project_state(self):
         values=validate_settings({key:var.get() for key,var in self.project_vars.items()})
@@ -327,7 +345,7 @@ class Application:
 
     def update_project_title(self):
         name=os.path.basename(self.project_path) if self.project_path else 'Untitled'
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.9 - Studio Workflow')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.10 - Song & Artist')
 
     def clear_media(self):
         self.pause()
@@ -335,6 +353,7 @@ class Application:
         self.loaded_audio_path=None;self.length=0;self.position.set(0)
         self.selection_start.set(0);self.selection_end.set(0)
         self.pending_selection=None
+        self.metadata_pending_path=None
         self.scrub.configure(to=0);self.progress['value']=0
         self.canvas.configure(image='',text='YOUR NEXT VISUAL STARTS HERE\n\nChoose music to bring this scene to life.')
         self.update_selection()
@@ -357,7 +376,7 @@ class Application:
             path=self.project_path
             if save_as or not path:
                 path=filedialog.asksaveasfilename(defaultextension='.dero',filetypes=[('DeRo project','*.dero')],
-                    initialfile=os.path.basename(path) if path else 'Untitled.dero')
+                    initialfile=self.filename_stem()+'.dero')
             if not path:return False
             save_project(path,values,*selection)
             self.project_path=os.path.abspath(path)
@@ -459,6 +478,7 @@ class Application:
         if p:
             self._remember_folder('music',p)
             self.audio.set(p)
+            self.metadata_pending_path=p
             self.pause()
             self.samples=None;self.features=None;self.renderer=None
             self.prepare_preview()
@@ -479,7 +499,12 @@ class Application:
             spectrum_height=self.spectrum_height.get()/100,title_size=self.title_size.get()/100,
             title_x=self.title_x.get()/100,title_y=self.title_y.get()/100,title_font=self.title_font.get(),
             title_bold=self.title_bold.get(),title_italic=self.title_italic.get(),
-            title_uppercase=self.title_uppercase.get(),title_color=self.title_color.get())
+            title_uppercase=self.title_uppercase.get(),title_color=self.title_color.get(),
+            artist=self.artist.get(),artist_size=self.artist_size.get()/100,
+            artist_x=self.artist_x.get()/100,artist_y=self.artist_y.get()/100,
+            artist_font=self.artist_font.get(),artist_bold=self.artist_bold.get(),
+            artist_italic=self.artist_italic.get(),artist_uppercase=self.artist_uppercase.get(),
+            artist_color=self.artist_color.get())
 
     def prepare_preview(self):
         if self.busy:return
@@ -494,6 +519,8 @@ class Application:
         self.busy=True;self.status.set('Analyzing music frequencies...')
         def worker():
             try:
+                if path==self.metadata_pending_path:
+                    self.q.put(('metadata',(path,read_metadata(path))))
                 if self.samples is None or path != self.loaded_audio_path:
                     samples,sr=load_audio(path)
                 else:samples,sr=self.samples
@@ -628,7 +655,7 @@ class Application:
 
     def save_preview(self):
         if not self.renderer:return messagebox.showinfo('Preview','Analyze music first.')
-        p=filedialog.asksaveasfilename(defaultextension='.png',filetypes=[('PNG image','*.png')])
+        p=filedialog.asksaveasfilename(initialfile=self.filename_stem()+'.png',defaultextension='.png',filetypes=[('PNG image','*.png')])
         if p:
             self.renderer.render(self.position.get()).save(p)
             self.status.set('Saved preview: '+p)
@@ -675,7 +702,7 @@ class Application:
         audio_path=self.audio.get().strip()
         out=filedialog.asksaveasfilename(
             initialdir=self._browse_initial_folder('export', self.last_export_path or ''),
-            defaultextension='.mp4', filetypes=[('MP4 video','*.mp4')])
+            initialfile=self.filename_stem()+'.mp4',defaultextension='.mp4', filetypes=[('MP4 video','*.mp4')])
         if not out:return
         # A chosen destination counts as the last used folder even if export fails.
         self._remember_folder('export', out)
@@ -698,7 +725,13 @@ class Application:
         try:
             while True:
                 kind,data=self.q.get_nowait()
-                if kind=='ready':
+                if kind=='metadata':
+                    path,tags=data
+                    if path==self.audio.get().strip() and path==self.metadata_pending_path:
+                        self.title.set(tags['title'] or os.path.splitext(os.path.basename(path))[0])
+                        self.artist.set(tags['artist'])
+                        self.metadata_pending_path=None
+                elif kind=='ready':
                     samples,sr,features,renderer,path=data
                     self.samples=samples,sr
                     self.features=features;self.renderer=renderer
@@ -718,6 +751,7 @@ class Application:
                     self.scrub.configure(to=self.length)
                     self.busy=False
                     self.status.set(f'Preview ready. Duration: {self.length:.1f}s | {len(features)} spectrum frames.')
+                    self.apply_layout_preview()
                     self.display_frame()
                 elif kind=='error':
                     self.busy=False

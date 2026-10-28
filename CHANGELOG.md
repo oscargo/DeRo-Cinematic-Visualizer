@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.10 — Song & Artist
+
+- Added separate song-name and artist-name rows with independent formatting and position.
+- Auto-fill title and artist metadata when choosing music; retain manual edits in projects.
+- Suggest Artist - Song filenames for project saves, Save As, MP4, and PNG exports.
+- Preserve older project values and add a blank artist row for compatibility.
+- Added real tagged-audio, naming, artist-rendering, and project round-trip tests.
+
 ## v0.1.9 — Studio Workflow
 
 - Highlighted Choose music and Choose background with distinct accent colors.
