@@ -12,6 +12,7 @@ from export_video import export
 from preview_cache import PreviewCache
 from visualizer_core import Settings,audio_features
 from visualizer_app import Application
+from export_timing import ExportTimer
 from project_io import DEFAULTS
 
 
@@ -67,6 +68,7 @@ class ExportCacheTests(unittest.TestCase):
 
     def test_gui_passes_captured_snapshot_to_export_worker(self):
         app=Mock()
+        app.export_timer=ExportTimer()
         app.busy=False;app.audio.get.return_value='source.wav'
         app.loaded_audio_path='source.wav'
         app.selection_bounds.return_value=(0,1)

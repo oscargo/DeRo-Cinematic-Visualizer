@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.28 — NVIDIA GPU Encoding
+# DeRo Cinematic Visualizer v0.1.29 — Export Timing
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.29`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.30`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_28_NVIDIA_GPU_Encoding.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_29_Export_Timing.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_28_NVIDIA_GPU_Encoding**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_29_Export_Timing**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -435,3 +435,20 @@ preview analysis is still reused when valid. Hardware encoding can reduce export
 time when encoding is the bottleneck; no specific total speedup is guaranteed.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_28_NVIDIA_GPU_Encoding.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_28_NVIDIA_GPU_Encoding.zip)
+
+
+## v0.1.29 — Export Timing
+
+The top progress panel now shows **Elapsed: HH:MM:SS** throughout export,
+including preparation, GPU detection and the final audio mux. It continues
+updating between frame-progress events. When the worker finishes, the label
+changes to **Total export time: HH:MM:SS** and stays visible, including for a
+failed attempt. The next export resets the timer. CPU fallback retries are
+included in the same total. Time spent choosing the output filename is excluded.
+
+The same panel shows **Encoding: GPU — NVIDIA NVENC**, **Encoding: CPU**, or
+**Encoding: CPU (fallback)** based on the actual encoder selected, along with
+**Rendering: CPU**. These labels remain visible after completion. Choosing NVIDIA
+in Output does not falsely label an unavailable GPU as active.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_29_Export_Timing.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_29_Export_Timing.zip)

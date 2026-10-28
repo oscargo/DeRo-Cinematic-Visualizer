@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.29 — Export Timing
+
+- Show a live HH:MM:SS elapsed timer in the top export progress area.
+- Keep the total duration visible after success or failure, using the worker completion time.
+- Include analysis, GPU probing, rendering, encoding, muxing, and any CPU retry in the duration.
+- Display the actual GPU/CPU encoder in the same area, marking CPU fallback and CPU visual rendering explicitly.
+- Update elapsed time even when no frame-progress event arrives; reset it for each new export.
+
 ## v0.1.28 — NVIDIA GPU Encoding
 
 - Add Auto, NVIDIA NVENC, and CPU H.264 encoding choices in Output; save the choice in projects.

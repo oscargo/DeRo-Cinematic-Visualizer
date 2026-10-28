@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.28 — NVIDIA GPU Encoding.
+"""DeRo Cinematic Visualizer v0.1.29 — Export Timing.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -20,6 +20,7 @@ from tkinter import filedialog, messagebox, ttk, colorchooser, font as tkfont
 from PIL import Image, ImageTk
 from visualizer_core import Settings, Renderer, audio_features
 from audio_io import load_audio, read_metadata, suggested_name
+from export_timing import ExportTimer
 from export_video import export
 from video_encoder import ENCODER_CHOICES
 from preview_audio import PreviewAudio, decode_preview
@@ -29,7 +30,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.28 - NVIDIA GPU Encoding')
+        self.root.title('DeRo Cinematic Visualizer v0.1.29 - Export Timing')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -51,6 +52,9 @@ class Application:
         self.pending_selection=None
         self.layout_job=None
         self.metadata_pending_path=None
+        self.export_timer=ExportTimer()
+        self.export_time=tk.StringVar(value=self.export_timer.text())
+        self.export_device=tk.StringVar(value="Encoding: — | Rendering: CPU")
         self.encoder_status=tk.StringVar(value="Encoder: checked when export starts")
         self.status=tk.StringVar(value='Select an audio file. Requires FFmpeg available on PATH.')
         self.position=tk.DoubleVar(value=0)
@@ -183,7 +187,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='NVIDIA GPU ENCODING  /  v0.1.28',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='EXPORT TIMING  /  v0.1.29',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -197,6 +201,8 @@ class Application:
         self.progress.pack(fill='x',pady=(6,4))
         self.status_label=ttk.Label(export_status,textvariable=self.status,style='Muted.TLabel',width=1,anchor='w')
         self.status_label.pack(fill='x')
+        ttk.Label(export_status,textvariable=self.export_time,style='Muted.TLabel').pack(anchor='w',pady=(3,0))
+        ttk.Label(export_status,textvariable=self.export_device,style='Muted.TLabel').pack(anchor='w',pady=(3,0))
         self.notification_caption=ttk.Label(export_status,text='Preview sound is switchable / Export includes music',style='Muted.TLabel')
         self.notification_caption.pack(anchor='w',pady=(3,0))
         body=tk.PanedWindow(shell,orient='horizontal',background='#0b101a',borderwidth=0,
@@ -668,7 +674,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.28 - NVIDIA GPU Encoding')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.29 - Export Timing')
 
     def clear_media(self):
         self.pause()
@@ -773,7 +779,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / NVIDIA GPU Encoding')
+        window.title('DeRo / Export Timing')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -1132,8 +1138,11 @@ class Application:
         self.notification_heading.configure(text='Exporting video',style='Section.TLabel')
         self.progress['value']=0
         self.encoder_status.set('Preparing encoder...')
+        self.export_device.set('Encoding: checking... | Rendering: CPU')
         self.status.set('Exporting video. High-resolution rendering may be slow.')
         cached_analysis=self.preview_cache.snapshot()
+        export_started=self.export_timer.start()
+        self.export_time.set(self.export_timer.text())
         def worker():
             try:
                 export(audio_path,out,settings,progress=lambda i,n:self.q.put(('progress',(i,n))),
@@ -1141,8 +1150,11 @@ class Application:
                        encoder_status=lambda message:self.q.put(('encoder',message)))
                 if not os.path.isfile(out) or os.path.getsize(out) == 0:
                     raise RuntimeError('Export returned without a valid output MP4.')
+                self.q.put(('export_timing',time.monotonic()-export_started))
                 self.q.put(('finished',out))
-            except Exception as exc:self.q.put(('error',str(exc)))
+            except Exception as exc:
+                self.q.put(('export_timing',time.monotonic()-export_started))
+                self.q.put(('error',str(exc)))
         threading.Thread(target=worker,daemon=True).start()
 
     def open_completed_export(self,path):
@@ -1155,7 +1167,13 @@ class Application:
         try:
             while True:
                 kind,data=self.q.get_nowait()
-                if kind=='encoder':
+                if kind=='export_timing':
+                    self.export_timer.stop(data)
+                    self.export_time.set(self.export_timer.text())
+                elif kind=='encoder':
+                    device=('GPU — NVIDIA NVENC' if data.startswith('NVIDIA NVENC') else
+                            'CPU (fallback)' if data.startswith('CPU fallback') else 'CPU')
+                    self.export_device.set('Encoding: '+device+' | Rendering: CPU')
                     self.encoder_status.set(data)
                     self.status.set(data)
                 elif kind=='particles_ready':
@@ -1222,6 +1240,8 @@ class Application:
                         # another video player takes focus and starts its audio.
                         self.root.after(2000,lambda path=self.last_export_path:self.open_completed_export(path))
         except queue.Empty:pass
+        if getattr(self,'export_timer',None) is not None:
+            self.export_time.set(self.export_timer.text())
         self.root.after(150,self.poll)
 
 if __name__=='__main__':
