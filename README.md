@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.10 — Song & Artist
+# DeRo Cinematic Visualizer v0.1.11 — Preview Workspace
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.11`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.12`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo-Cinematic-Visualizer-vMAJOR.MINOR.PATCH-Feature-Name`.
-This release: `DeRo-Cinematic-Visualizer-v0.1.10-Song-and-Artist.zip`.
+This release: `DeRo-Cinematic-Visualizer-v0.1.11-Preview-Workspace.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -132,3 +132,9 @@ New project saves, Save As, MP4 exports, and PNG saves suggest **Artist - Song**
 If one name is blank, only the available name is used; both blank gives Untitled.
 Windows-forbidden filename characters are replaced safely. Save continues writing
 to the current project path; use Save As to rename it after editing names.
+
+## v0.1.11 — Preview Workspace
+Rearranged the workspace to match the supplied layout: export status and progress
+are at the top, and Export MP4 sits beside the export range fields. The separate
+bottom status/export panel has been removed so the preview expands into that space.
+All project settings, spectrum bands, title/artist controls, and export behavior are retained.

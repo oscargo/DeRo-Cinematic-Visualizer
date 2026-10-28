@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.10 — Song & Artist.
+"""DeRo Cinematic Visualizer v0.1.11 — Preview Workspace.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview is silent; exports include audio.
@@ -23,7 +23,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.10 - Song & Artist')
+        self.root.title('DeRo Cinematic Visualizer v0.1.11 - Preview Workspace')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -84,6 +84,7 @@ class Application:
         style.configure('Muted.TLabel',foreground='#96a6bf')
         style.configure('Section.TLabel',foreground='#8fa9d5',font=(self.ui_font,9,'bold'))
         style.configure('Heading.TLabel',font=(self.ui_font,17,'bold'))
+        style.configure('CompactBrand.TLabel',background='#0b101a',font=(self.ui_font,15,'bold'))
         style.configure('Brand.TLabel',background='#0b101a',font=(self.ui_font,23,'bold'))
         style.configure('Subtitle.TLabel',background='#0b101a',foreground='#96a6bf')
         style.configure('Badge.TLabel',background='#192b40',foreground='#9ac7e8',padding=(12,6),font=(self.ui_font,9,'bold'))
@@ -127,15 +128,24 @@ class Application:
         shell=ttk.Frame(self.root,style='Shell.TFrame',padding=(20,12))
         shell.pack(fill='both',expand=True)
         header=ttk.Frame(shell,style='Shell.TFrame');header.pack(fill='x',pady=(0,10))
-        brand=ttk.Frame(header,style='Shell.TFrame');brand.pack(side='left')
-        ttk.Label(brand,text='DeRo  /  Cinematic Visualizer',style='Brand.TLabel').pack(anchor='w')
+        header.columnconfigure(1,weight=1)
+        brand=ttk.Frame(header,style='Shell.TFrame');brand.grid(row=0,column=0,sticky='w',padx=(0,14))
+        ttk.Label(brand,text='DeRo / Cinematic Visualizer',style='CompactBrand.TLabel').pack(anchor='w')
         ttk.Label(brand,text='Shape the sound. Set the atmosphere.',style='Subtitle.TLabel').pack(anchor='w',pady=(4,0))
-        project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.pack(side='right',padx=(12,0))
-        ttk.Label(project_actions,text='SONG & ARTIST  /  v0.1.10',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
+        ttk.Label(project_actions,text='PREVIEW WORKSPACE  /  v0.1.11',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
             ttk.Button(project_buttons,text=label,command=command,padding=(10,7)).pack(side='left',padx=(4,0))
+        export_status=ttk.Frame(header,padding=(10,8))
+        export_status.grid(row=0,column=1,sticky='ew')
+        ttk.Label(export_status,text='Export status',style='Section.TLabel').pack(anchor='w')
+        self.progress=ttk.Progressbar(export_status,maximum=100,mode='determinate',length=100)
+        self.progress.pack(fill='x',pady=(6,4))
+        self.status_label=ttk.Label(export_status,textvariable=self.status,style='Muted.TLabel',width=1,anchor='w')
+        self.status_label.pack(fill='x')
+        ttk.Label(export_status,text='Preview is silent / Export includes music',style='Muted.TLabel').pack(anchor='w',pady=(3,0))
         body=tk.PanedWindow(shell,orient='horizontal',background='#263b57',borderwidth=0,
                             sashwidth=12,sashpad=3,showhandle=True,handlesize=24,opaqueresize=True)
         body.pack(fill='both',expand=True)
@@ -264,6 +274,7 @@ class Application:
         self.range_canvas.bind('<B1-Motion>',self.drag_selection)
         self.range_canvas.bind('<ButtonRelease-1>',lambda event:setattr(self,'range_handle',None))
         times=ttk.Frame(selection);times.pack(fill='x')
+        ttk.Button(times,text='Export MP4',style='Accent.TButton',command=self.export_file).pack(side='right')
         for label,var in (('Start (s)',self.selection_start),('End (s)',self.selection_end)):
             ttk.Label(times,text=label,style='Muted.TLabel').pack(side='left',padx=(0,6))
             entry=ttk.Entry(times,textvariable=var,width=9);entry.pack(side='left',padx=(0,16))
@@ -277,16 +288,6 @@ class Application:
                 ('Play from start',lambda:self.start_playback(False)))):
             buttons.columnconfigure(i%3,weight=1)
             ttk.Button(buttons,text=label,command=cmd).grid(row=i//3,column=i%3,sticky='ew',padx=(0,6),pady=3)
-        footer=ttk.Frame(workspace,padding=16);footer.grid(row=2,column=0,sticky='ew',pady=(12,0))
-        action=ttk.Frame(footer);action.pack(fill='x')
-        ttk.Label(action,text='Ready when you are.',style='Heading.TLabel').pack(side='left')
-        ttk.Button(action,text='Export MP4',style='Accent.TButton',command=self.export_file).pack(side='right')
-        self.progress=ttk.Progressbar(footer,maximum=100,mode='determinate',length=100)
-        self.progress.pack(fill='x',pady=(12,8))
-        self.status_label=ttk.Label(footer,textvariable=self.status,style='Muted.TLabel',wraplength=580)
-        self.status_label.pack(anchor='w',fill='x')
-        self.status_label.bind('<Configure>',lambda e:self.status_label.configure(wraplength=max(100,e.width)))
-        ttk.Label(footer,text='Preview is silent / Export includes music',style='Muted.TLabel').pack(anchor='w',pady=(4,0))
 
     def schedule_layout_preview(self,*args):
         if self.layout_job is not None:self.root.after_cancel(self.layout_job)
@@ -345,7 +346,7 @@ class Application:
 
     def update_project_title(self):
         name=os.path.basename(self.project_path) if self.project_path else 'Untitled'
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.10 - Song & Artist')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.11 - Preview Workspace')
 
     def clear_media(self):
         self.pause()

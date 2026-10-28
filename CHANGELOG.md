@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.11 — Preview Workspace
+
+- Moved export progress and status to the header.
+- Moved Export MP4 alongside the selected range.
+- Removed the separate bottom export panel to enlarge the responsive preview.
+- Preserved project settings and rendering behavior.
+
 ## v0.1.10 — Song & Artist
 
 - Added separate song-name and artist-name rows with independent formatting and position.
