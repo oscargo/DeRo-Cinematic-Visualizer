@@ -8,8 +8,8 @@ import shutil
 import threading
 import time
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
-from PIL import ImageTk
+from tkinter import filedialog, messagebox, ttk, font as tkfont
+from PIL import Image, ImageTk
 from visualizer_core import Settings, Renderer, audio_features
 from audio_io import load_audio
 from export_video import export
@@ -17,8 +17,11 @@ from export_video import export
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.6 - Quick Export Selection')
-        self.root.geometry('1120x810')
+        self.root.title('DeRo Cinematic Visualizer v0.1.7 - Midnight Studio')
+        self.root.geometry('1400x940')
+        self.root.minsize(1120,820)
+        self.preview_frame=None
+        self.preview_resize_job=None
         self.folder_preferences = self._load_folder_preferences()
         self.audio=tk.StringVar()
         self.background=tk.StringVar()
@@ -33,7 +36,7 @@ class Application:
         self.position=tk.DoubleVar(value=0)
         self.selection_start=tk.DoubleVar(value=0)
         self.selection_end=tk.DoubleVar(value=0)
-        self.selection_text=tk.StringVar(value="Start 0.000s • End 0.000s • Length 0.000s")
+        self.selection_text=tk.StringVar(value="Start 0.000s  |  End 0.000s  |  Length 0.000s")
         self.loop_selection=False
         self.play_selection=False
         self.loaded_audio_path=None
@@ -51,79 +54,175 @@ class Application:
         self.build()
         root.after(150,self.poll)
 
+    def configure_theme(self):
+        families={name.lower():name for name in tkfont.families(self.root)}
+        self.ui_font=next((families[name] for name in ('segoe ui','inter','dejavu sans','arial','helvetica') if name in families),'TkDefaultFont')
+        self.root.configure(background='#0b101a')
+        style=ttk.Style(self.root)
+        style.theme_use('clam')
+        self.root.option_add('*Font', (self.ui_font,10))
+        self.root.option_add('*TCombobox*Listbox.background','#1c2739')
+        self.root.option_add('*TCombobox*Listbox.foreground','#e5ebf5')
+        self.root.option_add('*TCombobox*Listbox.selectBackground','#456cbd')
+        style.configure('.',background='#101827',foreground='#e5ebf5',font=(self.ui_font,10))
+        style.configure('TFrame',background='#101827')
+        style.configure('Shell.TFrame',background='#0b101a')
+        style.configure('TLabel',background='#101827',foreground='#e5ebf5')
+        style.configure('Muted.TLabel',foreground='#96a6bf')
+        style.configure('Section.TLabel',foreground='#8fa9d5',font=(self.ui_font,9,'bold'))
+        style.configure('Heading.TLabel',font=(self.ui_font,17,'bold'))
+        style.configure('Brand.TLabel',background='#0b101a',font=(self.ui_font,23,'bold'))
+        style.configure('Subtitle.TLabel',background='#0b101a',foreground='#96a6bf')
+        style.configure('Badge.TLabel',background='#192b40',foreground='#9ac7e8',padding=(12,6),font=(self.ui_font,9,'bold'))
+        style.configure('TButton',background='#202e44',foreground='#e5ebf5',borderwidth=0,
+                        padding=(12,9),font=(self.ui_font,10))
+        style.map('TButton',background=[('pressed','#344967'),('active','#2c405e')],
+                  foreground=[('disabled','#5f6e85')])
+        style.configure('Accent.TButton',background='#82b8f9',foreground='#0c192b',font=(self.ui_font,10,'bold'))
+        style.map('Accent.TButton',background=[('pressed','#5795e3'),('active','#a1ccff')])
+        for name in ('TEntry','TCombobox','TSpinbox'):
+            style.configure(name,fieldbackground='#192538',background='#263752',foreground='#edf3ff',
+                            bordercolor='#2a3a52',lightcolor='#2a3a52',darkcolor='#2a3a52',
+                            insertcolor='#ffffff',arrowsize=13,padding=7)
+            style.map(name,fieldbackground=[('readonly','#192538')],
+                      foreground=[('readonly','#edf3ff')],bordercolor=[('focus','#82b8f9')])
+        style.configure('Horizontal.TScale',background='#101827',troughcolor='#263752',borderwidth=0)
+        style.configure('Horizontal.TProgressbar',background='#82b8f9',troughcolor='#1c2b41',borderwidth=0)
+        style.configure('TSeparator',background='#263247')
+
     def build(self):
-        # Two-column top controls follow the user's v0.1.0 screenshot arrangement.
-        pane=ttk.Frame(self.root,padding=10)
-        pane.pack(fill='both',expand=True)
-        top=ttk.Frame(pane)
-        top.pack(fill='x',pady=(0,6))
-        top.columnconfigure(0,weight=6)
-        top.columnconfigure(1,weight=5)
-        left=ttk.Frame(top);left.grid(row=0,column=0,sticky='nsew',padx=(0,16))
-        right=ttk.Frame(top);right.grid(row=0,column=1,sticky='nsew')
-        left.columnconfigure(1,weight=1)
-        for i,(label,var,cmd) in enumerate((
-            ('Music file',self.audio,self.browse_audio),
-            ('Background image',self.background,self.browse_background))):
-            ttk.Label(left,text=label).grid(row=i,column=0,sticky='w',padx=(0,6),pady=3)
-            ttk.Entry(left,textvariable=var).grid(row=i,column=1,sticky='ew',pady=3)
-            ttk.Button(left,text='Browse',command=cmd).grid(row=i,column=2,padx=(6,0),pady=3)
-        first=ttk.Frame(right);first.pack(fill='x',pady=3)
-        ttk.Label(first,text='Title').pack(side='left',padx=(0,4))
-        ttk.Entry(first,textvariable=self.title,width=18).pack(side='left',padx=(0,8))
-        ttk.Label(first,text='Dust count').pack(side='left',padx=(0,3))
-        ttk.Spinbox(first,from_=0,to=800,textvariable=self.dust,width=5).pack(side='left',padx=(0,8))
-        ttk.Label(first,text='Reactive %').pack(side='left',padx=(0,3))
-        ttk.Spinbox(first,from_=0,to=100,textvariable=self.reactive,width=4).pack(side='left',padx=(0,8))
-        ttk.Label(first,text='Sensitivity').pack(side='left',padx=(0,3))
-        ttk.Spinbox(first,from_=0.1,to=3.0,increment=.1,textvariable=self.sensitivity,width=5).pack(side='left')
-        second=ttk.Frame(right);second.pack(fill='x',pady=3)
-        ttk.Label(second,text='Resolution').pack(side='left',padx=(0,4))
-        ttk.Combobox(second,textvariable=self.res,values=('1920 x 1080','1280 x 720','854 x 480'),width=13,state='readonly').pack(side='left',padx=(0,8))
-        ttk.Label(second,text='FPS').pack(side='left',padx=(0,4))
-        ttk.Combobox(second,textvariable=self.fps,values=(60,30),width=4,state='readonly').pack(side='left',padx=(0,8))
-        ttk.Button(second,text='Refresh Preview',command=self.prepare_preview).pack(side='left',padx=(0,6))
-        ttk.Button(second,text='Export MP4',command=self.export_file).pack(side='left',padx=(0,6))
-        ttk.Button(second,text='Open Export Folder',command=self.open_export_folder).pack(side='left')
-        band_row=ttk.Frame(pane);band_row.pack(fill='x',pady=(2,4))
-        ttk.Label(band_row,text='Spectrum bands').pack(side='left',padx=(0,6))
-        band_box=ttk.Combobox(band_row,textvariable=self.bands,values=(32,64,96,128,192,256,384,512),width=7,state='readonly')
-        band_box.pack(side='left')
-        ttk.Label(band_row,text='384 = 4x the original 96 bands; mirrored around center',foreground='#526278').pack(side='left',padx=12)
-        transport=ttk.Frame(pane);transport.pack(fill='x',pady=(2,2))
-        ttk.Button(transport,text='Play / Pause Visuals (silent)',command=self.toggle_play).pack(side='left')
+        self.configure_theme()
+        shell=ttk.Frame(self.root,style='Shell.TFrame',padding=(24,18))
+        shell.pack(fill='both',expand=True)
+        header=ttk.Frame(shell,style='Shell.TFrame');header.pack(fill='x',pady=(0,18))
+        brand=ttk.Frame(header,style='Shell.TFrame');brand.pack(side='left')
+        ttk.Label(brand,text='DeRo  /  Cinematic Visualizer',style='Brand.TLabel').pack(anchor='w')
+        ttk.Label(brand,text='Shape the sound. Set the atmosphere.',style='Subtitle.TLabel').pack(anchor='w',pady=(4,0))
+        ttk.Label(header,text='MIDNIGHT STUDIO  /  v0.1.7',style='Badge.TLabel').pack(side='right')
+        body=ttk.Frame(shell,style='Shell.TFrame');body.pack(fill='both',expand=True)
+        body.columnconfigure(1,weight=1);body.rowconfigure(0,weight=1)
+        sidebar=ttk.Frame(body,padding=18,width=290)
+        sidebar.grid(row=0,column=0,sticky='nsew',padx=(0,18));sidebar.grid_propagate(False)
+        sidebar.columnconfigure(0,weight=1)
+        # Scroll the inspector on smaller screens and with large system fonts.
+        inspector=tk.Canvas(sidebar,background='#101827',highlightthickness=0,width=254)
+        scroll=ttk.Scrollbar(sidebar,orient='vertical',command=inspector.yview)
+        inspector.configure(yscrollcommand=scroll.set)
+        inspector.grid(row=0,column=0,sticky='nsew');scroll.grid(row=0,column=1,sticky='ns')
+        sidebar.rowconfigure(0,weight=1)
+        controls=ttk.Frame(inspector)
+        window=inspector.create_window((0,0),window=controls,anchor='nw')
+        controls.bind('<Configure>',lambda e:inspector.configure(scrollregion=inspector.bbox('all')))
+        inspector.bind('<Configure>',lambda e:inspector.itemconfigure(window,width=e.width))
+        def wheel(event):
+            pointer=self.root.winfo_containing(event.x_root,event.y_root)
+            if pointer is not None and str(pointer).startswith(str(sidebar)):
+                units=(-1 if event.num==4 else 1) if event.num in (4,5) else (-1 if event.delta>0 else 1)
+                inspector.yview_scroll(units*3,'units')
+        self.root.bind('<MouseWheel>',wheel,add='+')
+        self.root.bind('<Button-4>',wheel,add='+')
+        self.root.bind('<Button-5>',wheel,add='+')
+
+        def section(text):
+            ttk.Label(controls,text=text,style='Section.TLabel').pack(anchor='w',pady=(16,10))
+        def field(label,var,values=None):
+            ttk.Label(controls,text=label,style='Muted.TLabel').pack(anchor='w',pady=(7,5))
+            widget=(ttk.Combobox(controls,textvariable=var,values=values,state='readonly')
+                    if values else ttk.Entry(controls,textvariable=var))
+            widget.pack(fill='x')
+            return widget
+        ttk.Label(controls,text='Your composition',style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(controls,text='Build a scene around your music.',style='Muted.TLabel').pack(anchor='w',pady=(5,0))
+        section('01  /  SOURCE')
+        field('Music file',self.audio)
+        ttk.Button(controls,text='Choose music...',command=self.browse_audio).pack(fill='x',pady=(6,2))
+        field('Background image / optional',self.background)
+        ttk.Button(controls,text='Choose image...',command=self.browse_background).pack(fill='x',pady=(6,2))
+        section('02  /  ATMOSPHERE')
+        field('Display title',self.title)
+        for label,var,low,high,step in (('Dust particles',self.dust,0,800,1),
+                ('Reactive particles (%)',self.reactive,0,100,1),('Sensitivity',self.sensitivity,.1,3,.1)):
+            row=ttk.Frame(controls);row.pack(fill='x',pady=(12,0))
+            ttk.Label(row,text=label,style='Muted.TLabel').pack(side='left')
+            ttk.Spinbox(row,from_=low,to=high,increment=step,textvariable=var,width=6).pack(side='right')
+        field('Spectrum bands',self.bands,(32,64,96,128,192,256,384,512))
+        section('03  /  OUTPUT')
+        field('Resolution',self.res,('1920 x 1080','1280 x 720','854 x 480'))
+        field('Frames per second',self.fps,(60,30))
+        ttk.Button(controls,text='Quick test / 480p / 30 FPS',command=self.quick_test_preset).pack(fill='x',pady=(10,0))
+        ttk.Button(controls,text='Open export folder',command=self.open_export_folder).pack(fill='x',pady=(8,12))
+
+        workspace=ttk.Frame(body,style='Shell.TFrame');workspace.grid(row=0,column=1,sticky='nsew')
+        workspace.columnconfigure(0,weight=1);workspace.rowconfigure(0,weight=1)
+        preview=ttk.Frame(workspace,padding=16);preview.grid(row=0,column=0,sticky='nsew')
+        preview.columnconfigure(0,weight=1);preview.rowconfigure(1,weight=1)
+        toolbar=ttk.Frame(preview);toolbar.grid(row=0,column=0,sticky='ew',pady=(0,12))
+        ttk.Label(toolbar,text='Scene preview',style='Heading.TLabel').pack(side='left')
+        ttk.Button(toolbar,text='Save PNG',command=self.save_preview).pack(side='right')
+        ttk.Button(toolbar,text='Refresh preview',command=self.prepare_preview).pack(side='right',padx=8)
+        viewport=ttk.Frame(preview);viewport.grid(row=1,column=0,sticky='nsew')
+        viewport.pack_propagate(False)
+        self.canvas=tk.Label(viewport,text='YOUR NEXT VISUAL STARTS HERE\n\nChoose music to bring this scene to life.',
+                             font=(self.ui_font,14),background='#080e19',foreground='#91a5c5',borderwidth=0)
+        self.canvas.pack(fill='both',expand=True)
+        self.canvas.bind('<Configure>',self.resize_preview)
+        transport=ttk.Frame(preview);transport.grid(row=2,column=0,sticky='ew',pady=(12,0))
+        ttk.Button(transport,text='Play / Pause',command=self.toggle_play).pack(side='left')
         self.scrub=ttk.Scale(transport,from_=0,to=100,variable=self.position,command=lambda _:self.display_frame())
-        self.scrub.pack(side='left',fill='x',expand=True,padx=9)
-        ttk.Button(transport,text='Save Preview PNG',command=self.save_preview).pack(side='left')
-        selection=ttk.LabelFrame(pane,text='Preview / export selection',padding=6)
-        selection.pack(fill='x',pady=4)
-        self.range_canvas=tk.Canvas(selection,height=34,background='#142039',highlightthickness=0)
-        self.range_canvas.pack(fill='x')
+        self.scrub.pack(side='left',fill='x',expand=True,padx=12)
+        ttk.Label(transport,text='SILENT PREVIEW',style='Section.TLabel').pack(side='right')
+
+        selection=ttk.Frame(workspace,padding=(16,12));selection.grid(row=1,column=0,sticky='ew',pady=(12,0))
+        heading=ttk.Frame(selection);heading.pack(fill='x')
+        ttk.Label(heading,text='Export range',style='Heading.TLabel').pack(side='left')
+        ttk.Button(heading,text='Full song',command=self.full_song).pack(side='right')
+        self.range_canvas=tk.Canvas(selection,height=38,background='#101827',highlightthickness=0,cursor='hand2')
+        self.range_canvas.pack(fill='x',pady=(5,0))
         self.range_canvas.bind('<Configure>',lambda event:self.update_selection())
         self.range_canvas.bind('<Button-1>',self.drag_selection)
         self.range_canvas.bind('<B1-Motion>',self.drag_selection)
         self.range_canvas.bind('<ButtonRelease-1>',lambda event:setattr(self,'range_handle',None))
         times=ttk.Frame(selection);times.pack(fill='x')
         for label,var in (('Start (s)',self.selection_start),('End (s)',self.selection_end)):
-            ttk.Label(times,text=label).pack(side='left',padx=(0,4))
-            entry=ttk.Entry(times,textvariable=var,width=10)
-            entry.pack(side='left',padx=(0,12))
+            ttk.Label(times,text=label,style='Muted.TLabel').pack(side='left',padx=(0,6))
+            entry=ttk.Entry(times,textvariable=var,width=9);entry.pack(side='left',padx=(0,16))
             entry.bind('<Return>',lambda event:self.update_selection())
             entry.bind('<FocusOut>',lambda event:self.update_selection())
-        ttk.Label(times,textvariable=self.selection_text).pack(side='left')
-        buttons=ttk.Frame(selection);buttons.pack(fill='x',pady=(5,0))
-        for label,cmd in (('Full Song',self.full_song),('Start at playhead',lambda:self.set_boundary('start')),
-                          ('End at playhead',lambda:self.set_boundary('end')),
-                          ('Play Selection',lambda:self.start_playback(True)),('Pause',self.pause),
-                          ('Loop Selection',lambda:self.start_playback(True,True)),
-                          ('Play from Start',lambda:self.start_playback(False))):
-            ttk.Button(buttons,text=label,command=cmd).pack(side='left',padx=(0,4))
-        self.progress=ttk.Progressbar(pane,maximum=100,mode='determinate')
-        self.progress.pack(fill='x',pady=(4,3))
-        ttk.Label(pane,textvariable=self.status,wraplength=1400).pack(anchor='w')
-        ttk.Label(pane,text='Preview animation is silent. Exported MP4 contains the music. 75% drifting / 25% reactive by default.',foreground='#526278').pack(anchor='w',pady=(0,3))
-        self.canvas=tk.Label(pane,text='Choose music, then click Refresh Preview',background='#091425',foreground='white')
-        self.canvas.pack(fill='both',expand=True,pady=(2,0))
+        ttk.Label(selection,textvariable=self.selection_text,style='Muted.TLabel').pack(anchor='w',pady=(8,4))
+        buttons=ttk.Frame(selection);buttons.pack(fill='x')
+        for i,(label,cmd) in enumerate((('Set start here',lambda:self.set_boundary('start')),
+                ('Set end here',lambda:self.set_boundary('end')),('Play selection',lambda:self.start_playback(True)),
+                ('Pause',self.pause),('Loop selection',lambda:self.start_playback(True,True)),
+                ('Play from start',lambda:self.start_playback(False)))):
+            buttons.columnconfigure(i%3,weight=1)
+            ttk.Button(buttons,text=label,command=cmd).grid(row=i//3,column=i%3,sticky='ew',padx=(0,6),pady=3)
+        footer=ttk.Frame(workspace,padding=16);footer.grid(row=2,column=0,sticky='ew',pady=(12,0))
+        action=ttk.Frame(footer);action.pack(fill='x')
+        ttk.Label(action,text='Ready when you are.',style='Heading.TLabel').pack(side='left')
+        ttk.Button(action,text='Export MP4',style='Accent.TButton',command=self.export_file).pack(side='right')
+        self.progress=ttk.Progressbar(footer,maximum=100,mode='determinate',length=100)
+        self.progress.pack(fill='x',pady=(12,8))
+        self.status_label=ttk.Label(footer,textvariable=self.status,style='Muted.TLabel',wraplength=580)
+        self.status_label.pack(anchor='w',fill='x')
+        self.status_label.bind('<Configure>',lambda e:self.status_label.configure(wraplength=max(100,e.width)))
+        ttk.Label(footer,text='Preview is silent / Export includes music',style='Muted.TLabel').pack(anchor='w',pady=(4,0))
+
+    def quick_test_preset(self):
+        self.res.set('854 x 480')
+        self.fps.set(30)
+        self.status.set('Quick test output: 480p / 30 FPS. Choose a short export range below the preview.')
+
+    def resize_preview(self,event=None):
+        if self.preview_resize_job is not None:self.root.after_cancel(self.preview_resize_job)
+        self.preview_resize_job=self.root.after(60,self.fit_preview)
+
+    def fit_preview(self):
+        self.preview_resize_job=None
+        if self.preview_frame is None:return
+        frame=self.preview_frame.copy()
+        frame.thumbnail((max(1,self.canvas.winfo_width()-8),max(1,self.canvas.winfo_height()-8)),Image.Resampling.LANCZOS)
+        self.photo=ImageTk.PhotoImage(frame)
+        self.canvas.configure(image=self.photo,text='')
 
     @staticmethod
     def _preferences_file():
@@ -215,8 +314,8 @@ class Application:
         pos=min(self.length,max(0,self.position.get()))
         try:
             frame=self.renderer.render(pos)
-            self.photo=ImageTk.PhotoImage(frame)
-            self.canvas.configure(image=self.photo,text='')
+            self.preview_frame=frame
+            self.fit_preview()
         except Exception as exc:self.status.set(f'Preview error: {exc}')
 
     def selection_bounds(self):
@@ -231,7 +330,7 @@ class Application:
     def update_selection(self):
         try:
             start,end=self.selection_start.get(),self.selection_end.get()
-            self.selection_text.set(f'Start {start:.3f}s • End {end:.3f}s • Length {end-start:.3f}s')
+            self.selection_text.set(f'Start {start:.3f}s  |  End {end:.3f}s  |  Length {end-start:.3f}s')
         except (ValueError,tk.TclError):
             self.selection_text.set('Enter start and end times in seconds.')
             return
@@ -241,8 +340,8 @@ class Application:
         x1=12+width*max(0,min(1,start/(self.length or 1)))
         x2=12+width*max(0,min(1,end/(self.length or 1)))
         canvas.create_line(12,17,width+12,17,fill='#34435e',width=8)
-        canvas.create_line(x1,17,x2,17,fill='#667bce',width=8)
-        for x in (x1,x2):canvas.create_rectangle(x-5,3,x+5,31,fill='#ffd24c',outline='')
+        canvas.create_line(x1,17,x2,17,fill='#82b8f9',width=8)
+        for x in (x1,x2):canvas.create_rectangle(x-5,3,x+5,31,fill='#b9d8ff',outline='')
 
     def drag_selection(self,event):
         if self.length<=0:return
