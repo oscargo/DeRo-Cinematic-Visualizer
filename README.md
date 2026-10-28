@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.15 — Sound, Peaks & Alerts
+# DeRo Cinematic Visualizer v0.1.16 — Slim Window Resize
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.16`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.17`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_15_Sound_Peaks_and_Alerts.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_16_Slim_Window_Resize.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_15_Sound_Peaks_and_Alerts**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_16_Slim_Window_Resize**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -203,3 +203,11 @@ in the top notification area, with a gentle completion tone. Windows uses the
 system Asterisk sound asynchronously. **Export completion tone** in Output toggles
 this independently of preview sound. Failed exports never play the success tone.
 The notification does not change your existing automatic-open behavior.
+
+## v0.1.16 — Slim Window Resize
+Removed the oversized vertical divider and square grip. The sidebar and preview
+now share a slim 5-pixel draggable edge with a horizontal resize cursor.
+Resize the outer window normally using the native window borders or maximize button.
+Composition settings, preview sound, export alerts, and rendering are unchanged.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_16_Slim_Window_Resize.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_16_Slim_Window_Resize.zip)

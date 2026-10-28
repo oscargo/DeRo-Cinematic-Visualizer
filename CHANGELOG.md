@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.16 — Slim Window Resize
+
+- Removed the oversized panel divider and square grip.
+- Use a slim 5-pixel draggable panel edge with a horizontal resize cursor.
+- Preserve native outer-window resizing and all existing settings.
+
 ## v0.1.15 — Sound, Peaks & Alerts
 
 - Removed the hard spectrum ceiling that flattened strong peaks.

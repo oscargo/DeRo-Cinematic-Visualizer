@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.15 — Sound, Peaks & Alerts.
+"""DeRo Cinematic Visualizer v0.1.16 — Slim Window Resize.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -25,7 +25,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.15 - Sound, Peaks & Alerts')
+        self.root.title('DeRo Cinematic Visualizer v0.1.16 - Slim Window Resize')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -146,7 +146,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='SOUND, PEAKS & ALERTS  /  v0.1.15',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='SLIM WINDOW RESIZE  /  v0.1.16',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -160,8 +160,9 @@ class Application:
         self.status_label=ttk.Label(export_status,textvariable=self.status,style='Muted.TLabel',width=1,anchor='w')
         self.status_label.pack(fill='x')
         ttk.Label(export_status,text='Preview sound is switchable / Export includes music',style='Muted.TLabel').pack(anchor='w',pady=(3,0))
-        body=tk.PanedWindow(shell,orient='horizontal',background='#263b57',borderwidth=0,
-                            sashwidth=12,sashpad=3,showhandle=True,handlesize=24,opaqueresize=True)
+        body=tk.PanedWindow(shell,orient='horizontal',background='#0b101a',borderwidth=0,
+                            sashwidth=5,sashpad=0,showhandle=False,
+                            sashcursor='sb_h_double_arrow',opaqueresize=True)
         body.pack(fill='both',expand=True)
         sidebar=ttk.Frame(body,padding=18,width=290)
         body.add(sidebar,minsize=280,width=320,stretch='never')
@@ -372,7 +373,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.15 - Sound, Peaks & Alerts')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.16 - Slim Window Resize')
 
     def clear_media(self):
         self.pause()
