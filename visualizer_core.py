@@ -6,6 +6,7 @@ standalone exports or as a rendering component inside DeRo Sync.
 from __future__ import annotations
 from dataclasses import dataclass
 import math
+import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -16,7 +17,17 @@ class Settings:
     fps: int = 60
     title: str = "LOVE NIGHT"
     bars: int = 384
-    spectrum_width: float = 0.62
+    spectrum_width: float = 0.82
+    spectrum_x: float = 0.5
+    spectrum_y: float = 0.906
+    title_size: float = 0.02
+    title_x: float = 0.5
+    title_y: float = 0.79
+    title_font: str = "Sans"
+    title_bold: bool = False
+    title_italic: bool = False
+    title_uppercase: bool = True
+    title_color: str = "#f8f9fd"
     spectrum_height: float = 0.068
     dust_count: int = 130
     reactive_fraction: float = 0.25
@@ -205,8 +216,8 @@ class Renderer:
             img = Image.alpha_composite(img, dust)
         overlay=Image.new('RGBA',(w,h))
         g=ImageDraw.Draw(overlay,'RGBA')
-        center=w//2
-        baseline=round(h*.906)
+        center=round(w*s.spectrum_x)
+        baseline=round(h*s.spectrum_y)
         sw=max(20,round(w*s.spectrum_width))
         bandcount=s.bars//2
         bw=sw/(s.bars+2)
@@ -223,12 +234,21 @@ class Renderer:
                 g.rounded_rectangle((xx-barw//2, round(baseline-height), xx+barw//2, baseline), radius=barw//2,fill=(240,246,255,220))
         g.line((center-sw/2,baseline+2,center+sw/2,baseline+2),fill=(240,245,255,115),width=max(1,round(h/1080)))
         if s.title:
-            try:
-                font=ImageFont.truetype('DejaVuSans.ttf',max(10,round(h*.020)))
-            except OSError:
-                font=ImageFont.load_default()
-            title=s.title.upper()
-            bbox=g.textbbox((0,0),title,font=font,stroke_width=0)
-            tw=bbox[2]-bbox[0]
-            g.text((center-tw/2,baseline-maxbar-h*.052),title,font=font,fill=(248,249,253,225))
+            font=self.title_font()
+            title=s.title.upper() if s.title_uppercase else s.title
+            g.text((w*s.title_x,h*s.title_y),title,font=font,anchor='mm',fill=s.title_color)
         return Image.alpha_composite(img,overlay).convert('RGB')
+
+    def title_font(self):
+        s=self.s
+        size=max(1,round(s.height*s.title_size))
+        family={'Sans':'DejaVuSans','Serif':'DejaVuSerif','Mono':'DejaVuSansMono'}.get(s.title_font,'DejaVuSans')
+        italic='Italic' if s.title_font=='Serif' else 'Oblique'
+        suffix=('-Bold'+italic if s.title_italic else '-Bold') if s.title_bold else ('-'+italic if s.title_italic else '')
+        windows={'Sans':'arial','Serif':'times','Mono':'cour'}[s.title_font]
+        windows+=('bi' if s.title_bold and s.title_italic else 'bd' if s.title_bold else 'i' if s.title_italic else '')
+        candidates=[family+suffix+'.ttf',os.path.join(os.environ.get('WINDIR','C:/Windows'),'Fonts',windows+'.ttf')]
+        for candidate in candidates:
+            try:return ImageFont.truetype(candidate,size)
+            except OSError:pass
+        return ImageFont.load_default(size=size)

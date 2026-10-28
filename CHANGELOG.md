@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.8 — Creative Projects
+
+- Added New, Open, Save, and Save As project commands with keyboard shortcuts.
+- Added versioned .dero files for composition, media references, and export selection.
+- New restores all defaults; unsaved changes can be saved before replacing or closing a project.
+- Added title font family, bold/italic, capitalization, size, color, and independent position.
+- Added title and spectrum position arrows with live preview updates.
+- Widened the default spectrum to 82%, with adjustable width, height, and position.
+- Added layout reset and spectrum width buttons.
+
 ## v0.1.7 — Midnight Studio
 
 - Redesigned the interface with a dark navy theme and blue accents.

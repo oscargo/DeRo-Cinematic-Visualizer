@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.7 — Midnight Studio
+# DeRo Cinematic Visualizer v0.1.8 — Creative Projects
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.8`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.9`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo-Cinematic-Visualizer-vMAJOR.MINOR.PATCH-Feature-Name`.
-This release: `DeRo-Cinematic-Visualizer-v0.1.7-Midnight-Studio.zip`.
+This release: `DeRo-Cinematic-Visualizer-v0.1.8-Creative-Projects.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -78,3 +78,25 @@ clear section headings, and a preview that scales with your window.
 The sidebar scrolls on smaller screens. Select **Quick test / 480p / 30 FPS**
 to configure a faster test export, then set your range and click **Export MP4**.
 All selection controls, folder memory, and audio exports remain available.
+
+## v0.1.8 — Creative Projects
+Use the **File** menu for **New project** (Ctrl+N), **Open project** (Ctrl+O),
+**Save project** (Ctrl+S), and **Save project as** (Ctrl+Shift+S).
+A new project clears media and restores every composition/output setting to defaults.
+The app asks whether to save unsaved changes before New, Open, or closing.
+Projects use `.dero` JSON files and retain all composition settings and the export range.
+Music and background files are referenced using paths relative to the project when possible;
+keep those media files with the project when moving it to another computer. Missing media
+can be replaced using the sidebar. Projects do not embed music, images, or exports.
+
+**Title & layout** includes Sans/Serif/Mono, bold, italic, uppercase, size, color,
+and independent X/Y position. Size is a percentage of frame height; positions are
+percentages of frame width/height with (0,0) at the top left. The title position is
+its center. Use the `<`, `^`, `v`, `>` buttons to move it by 1% per click.
+
+The spectrum now defaults to **82% width**. Set width (10–100%), height, and X/Y
+position, or use **Narrower / Wider** (2% per click) and the position arrows.
+Spectrum Y sets its baseline. Title and spectrum move independently; Reset buttons
+restore their default layouts. Edge positions can intentionally crop a title or spectrum.
+Layout and title edits appear immediately in an analyzed preview and are used in MP4/PNG exports.
+Refresh Preview after changing music analysis settings such as FPS or spectrum band count.

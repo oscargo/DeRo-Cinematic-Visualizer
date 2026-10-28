@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title DeRo Cinematic Visualizer v0.1.7 - Midnight Studio
+title DeRo Cinematic Visualizer v0.1.8 - Creative Projects
 
 rem Find FFmpeg without requiring any Windows PATH changes.
 set "FFMPEG_DIR="
