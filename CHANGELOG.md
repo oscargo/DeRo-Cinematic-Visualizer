@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.19 — Project Folder Memory
+
+- Remember the project folder across restarts for Open, Save, and Save As.
+- Preserve separate music/background/export folder preferences and cancellation behavior.
+- Correctly document the standard 50–10,584 Hz spectrum range and mirrored bar count.
+- Add folder persistence, reopen, save-as, cancellation, and missing-folder tests.
+
 ## v0.1.18 — Elements Studio
 
 - Organized settings into Audio, Backdrop, Text, Visualizer, Elements, and Output panels.

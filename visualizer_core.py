@@ -62,7 +62,8 @@ class Settings:
 def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int) -> np.ndarray:
     """Frequency-band energies (frames, bars) from mono 16/32bit decoded audio.
 
-    Log-spaced 50-14000 Hz bands, compressed and smoothed independently.
+    Log-spaced bands from 50 Hz to min(14000, sample_rate * .48),
+    compressed and smoothed independently. Default 22050 Hz audio: 50-10584 Hz.
     Spectral extraction happens once, not in the rendering loop.
     """
     samples = np.asarray(samples, dtype=np.float32).reshape(-1)

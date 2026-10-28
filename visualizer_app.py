@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.18 — Elements Studio.
+"""DeRo Cinematic Visualizer v0.1.19 — Project Folder Memory.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -25,7 +25,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.18 - Elements Studio')
+        self.root.title('DeRo Cinematic Visualizer v0.1.19 - Project Folder Memory')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -166,7 +166,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='ELEMENTS STUDIO  /  v0.1.18',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='PROJECT FOLDER MEMORY  /  v0.1.19',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -468,7 +468,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.18 - Elements Studio')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.19 - Project Folder Memory')
 
     def clear_media(self):
         self.pause()
@@ -503,11 +503,12 @@ class Application:
             values,selection=self.project_state()
             path=self.project_path
             if save_as or not path:
-                path=filedialog.asksaveasfilename(defaultextension='.dero',filetypes=[('DeRo project','*.dero')],
+                path=filedialog.asksaveasfilename(initialdir=self._browse_initial_folder('project',self.project_path or ''),defaultextension='.dero',filetypes=[('DeRo project','*.dero')],
                     initialfile=self.filename_stem()+'.dero')
             if not path:return False
             save_project(path,values,*selection)
             self.project_path=os.path.abspath(path)
+            self._remember_folder('project',path)
             self.saved_project_state=self.project_state()
             self.update_project_title()
             self.status.set('Project saved: '+self.project_path)
@@ -517,11 +518,12 @@ class Application:
 
     def open_project(self):
         if not self.confirm_replace():return
-        path=filedialog.askopenfilename(filetypes=[('DeRo project','*.dero'),('JSON project','*.json')])
+        path=filedialog.askopenfilename(initialdir=self._browse_initial_folder('project',self.project_path or ''),filetypes=[('DeRo project','*.dero'),('JSON project','*.json')])
         if not path:return
         try:values,selection=load_project(path)
         except (OSError,ValueError) as exc:
             messagebox.showerror('Could not open project',str(exc));return
+        self._remember_folder('project',path)
         self.clear_media()
         for key,value in values.items():self.project_vars[key].set(value)
         self.project_path=os.path.abspath(path)
@@ -567,7 +569,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Elements Studio')
+        window.title('DeRo / Project Folder Memory')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -614,7 +616,7 @@ class Application:
                 data = json.load(f)
             if isinstance(data, dict):
                 return {key: val for key, val in data.items()
-                        if key in ('music', 'background', 'export') and isinstance(val, str)}
+                        if key in ('music', 'background', 'export', 'project') and isinstance(val, str)}
         except (OSError, ValueError, TypeError):
             pass
         return {}
@@ -636,7 +638,7 @@ class Application:
             pass
 
     def _browse_initial_folder(self, category, current_path):
-        # Each file picker retains its own directory: music, background, export.
+        # Each file picker retains its own directory: music, background, export, project.
         choices = [self.folder_preferences.get(category, '')]
         if current_path.strip():
             choices.append(os.path.dirname(os.path.abspath(current_path.strip())))

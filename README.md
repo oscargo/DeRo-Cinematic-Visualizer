@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.18 — Elements Studio
+# DeRo Cinematic Visualizer v0.1.19 — Project Folder Memory
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.19`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.20`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_18_Elements_Studio.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_19_Project_Folder_Memory.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_18_Elements_Studio**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_19_Project_Folder_Memory**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -246,3 +246,22 @@ New element settings and relative image paths are saved in `.dero` projects.
 Older projects keep their existing values, with new optional controls at defaults.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_18_Elements_Studio.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_18_Elements_Studio.zip)
+
+## v0.1.19 — Project Folder Memory
+Open Project, Save, and Save As share a separate remembered project folder, stored
+in the existing folders.json preferences alongside music, background, and export
+folders. It survives restarts. Successful opens and saves update it; cancelled
+dialogs and invalid project files do not. If the folder is gone, the dialog falls
+back to the current project directory or home folder.
+
+### Spectrum frequency range and bar count
+The standard decode uses 22,050 Hz samples and a 4096-point FFT (about 5.38 Hz
+between FFT bins). Analysis covers **50–10,584 Hz**, logarithmically spaced.
+The upper edge is `min(14000, sample_rate * 0.48)`, so the normal app workflow
+does not reach 14 kHz. At the default 384-band setting, the renderer selects
+192 band values across this range and mirrors them, drawing **384 visible bars**.
+Bars represent frequency ranges, not single pure frequencies. Some narrow bass
+bands share FFT bins, so a larger bar count does not guarantee more independent
+frequency measurements. Available band counts: 32, 64, 96, 128, 192, 256, 384, 512.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_19_Project_Folder_Memory.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_19_Project_Folder_Memory.zip)
