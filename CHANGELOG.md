@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.28 — NVIDIA GPU Encoding
+
+- Add Auto, NVIDIA NVENC, and CPU H.264 encoding choices in Output; save the choice in projects.
+- Test NVENC with a real one-frame encode at the selected dimensions/FPS before selecting it.
+- Show the actual encoder or fallback reason in Output; keep GPU probing off the UI thread.
+- Fall back to CPU if NVENC is unavailable or fails during export, without repeating audio analysis.
+- Encode to a temporary MP4 and replace the destination only after success.
+- Preserve CPU rendering, deterministic timestamps, cached analysis, and original-audio muxing.
+- Validate CPU fallback and simulated GPU failures; physical NVIDIA encoding remains unverified in this cloud environment.
+
 ## v0.1.27 — Export Analysis Reuse
 
 - Reuse preview samples and features for export when source metadata and all analysis inputs match.

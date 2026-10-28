@@ -43,7 +43,7 @@ class ExportCacheTests(unittest.TestCase):
             with wave.open(str(source),'wb') as wav:
                 wav.setparams((1,2,rate,0,'NONE','not compressed'))
                 wav.writeframes((tone*16000).astype('<i2').tobytes())
-            settings=Settings(width=160,height=90,fps=10,bars=16,dust_count=4)
+            settings=Settings(width=160,height=90,fps=10,bars=16,dust_count=4,export_encoder='CPU (compatible)')
             cache=PreviewCache()
             cache.prepare(str(source),settings,load_audio,lambda _:None,audio_features)
             snapshot=cache.snapshot()

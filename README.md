@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.27 — Export Analysis Reuse
+# DeRo Cinematic Visualizer v0.1.28 — NVIDIA GPU Encoding
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -12,7 +12,7 @@ A standalone, reusable Python 3.12 music visualizer. It renders cinematic floati
 **Current limitations:**
 - Preview sound is optional: use **Sound on** beside the playback timeline. MP4 exports include music regardless of this preview toggle.
 - Background supports **still images or built-in navy gradient only**, not background video yet. Adding video compositing later should preserve the renderer API.
-- MP4 encoding uses CPU libx264, not GPU NVENC. Full-length 1080p60 can be slow.
+- MP4 encoding can use NVIDIA NVENC; CPU rendering and particle simulation can still limit full-length 1080p60 export speed.
 - The exported visualization is a best-effort aesthetic interpretation, **not a pixel-perfect recreation of the reference clip**.
 - The audio features are precomputed; long songs require memory and initial analysis time. Export re-analyzes at selected FPS and resolution.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.28`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.29`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_27_Export_Analysis_Reuse.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_28_NVIDIA_GPU_Encoding.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_27_Export_Analysis_Reuse**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_28_NVIDIA_GPU_Encoding**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -415,3 +415,23 @@ mutate those arrays. Export still builds its renderer and encodes every output
 frame, and FFmpeg reads the source file to include the selected audio.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_27_Export_Analysis_Reuse.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_27_Export_Analysis_Reuse.zip)
+
+
+## v0.1.28 — NVIDIA GPU Encoding
+
+In **Output → Video encoder**, leave **Auto (GPU if available)** selected to use
+NVIDIA NVENC when its actual encode test succeeds. **NVIDIA NVENC** also attempts
+the GPU and falls back safely; **CPU (compatible)** skips GPU detection entirely.
+The choice is saved in `.dero` projects. Older projects default to Auto.
+
+Output shows the actual encoder or CPU fallback reason when export starts.
+NVENC needs a supported NVIDIA GPU, a working NVIDIA driver, and an FFmpeg build
+that includes `h264_nvenc`. No CUDA toolkit, CuPy, or additional Python package is
+required. See [GPU setup and validation](docs/gpu_encoding.md).
+
+GPU acceleration applies to H.264 MP4 encoding. Pillow visual composition,
+particle trajectories, audio analysis, and preview remain on the CPU. Cached
+preview analysis is still reused when valid. Hardware encoding can reduce export
+time when encoding is the bottleneck; no specific total speedup is guaranteed.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_28_NVIDIA_GPU_Encoding.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_28_NVIDIA_GPU_Encoding.zip)

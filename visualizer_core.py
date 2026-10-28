@@ -69,6 +69,7 @@ class Settings:
     sensitivity: float = 1.0
     background: str = ""
     seed: int = 42
+    export_encoder: str = "Auto (GPU if available)"
 
 
 def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, frequency_min=50., frequency_max=None, frequency_scale='Logarithmic', spectrum_mapping='Smooth') -> np.ndarray:

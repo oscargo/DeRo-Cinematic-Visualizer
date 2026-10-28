@@ -1,10 +1,12 @@
 """Versioned project documents; media is referenced, never embedded."""
+from video_encoder import ENCODER_CHOICES
 import json
 import math
 import os
 from pathlib import Path
 
 DEFAULTS = {
+    'export_encoder':ENCODER_CHOICES[0],
     'spectrum_mapping':'Smooth','spectrum_style':'Classic bars','spectrum_mirrored':True,'spectrum_density':100.0,
     'spectrum_fill':58.0,'spectrum_color_end':'#35a5ff',
     'frequency_min':50.0,'frequency_max':10584.0,'frequency_scale':'Logarithmic',
@@ -28,7 +30,7 @@ RANGES = {'frequency_min':(20,19999),'frequency_max':(21,20000),'spectrum_densit
           'title_size':(.5,12),'title_x':(0,100),'title_y':(0,100),
           'spectrum_width':(10,100),'spectrum_x':(0,100),'spectrum_y':(0,100),
           'spectrum_height':(1,30)}
-CHOICES = {'spectrum_mapping':('Stepped','Balanced','Smooth'),'particle_reactivity':('Bass','Vocals / Midrange','Treble','Displayed range'),'spectrum_style':('Classic bars','Gradient bars','Glow bars','Reflected bars','Filled spectrum'),'frequency_scale':('Logarithmic','Linear'),'particle_direction':('Out','Left','Right','Up','Down'),'overlay_shape':('Original','Circle'),'fps':(30,60),
+CHOICES = {'export_encoder':ENCODER_CHOICES,'spectrum_mapping':('Stepped','Balanced','Smooth'),'particle_reactivity':('Bass','Vocals / Midrange','Treble','Displayed range'),'spectrum_style':('Classic bars','Gradient bars','Glow bars','Reflected bars','Filled spectrum'),'frequency_scale':('Logarithmic','Linear'),'particle_direction':('Out','Left','Right','Up','Down'),'overlay_shape':('Original','Circle'),'fps':(30,60),
            'res':('1920 x 1080','1280 x 720','854 x 480'), 'title_font':('Sans','Serif','Mono')}
 
 for key in ('size','x','y'):
