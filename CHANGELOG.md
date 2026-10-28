@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.12 — Project Identity
+
+- Display the current project name below the app name in the upper-left header.
+- Update the name on project actions and unsaved song/artist edits.
+- Wrap long project names without widening the header.
+
 ## v0.1.11 — Preview Workspace
 
 - Moved export progress and status to the header.

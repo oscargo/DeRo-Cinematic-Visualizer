@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.11 — Preview Workspace.
+"""DeRo Cinematic Visualizer v0.1.12 — Project Identity.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview is silent; exports include audio.
@@ -23,7 +23,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.11 - Preview Workspace')
+        self.root.title('DeRo Cinematic Visualizer v0.1.12 - Project Identity')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -36,6 +36,7 @@ class Application:
             self.project_vars[key]=kind(value=value)
             setattr(self,key,self.project_vars[key])
         self.project_path=None
+        self.project_name=tk.StringVar(value='Untitled project')
         self.pending_selection=None
         self.layout_job=None
         self.metadata_pending_path=None
@@ -65,6 +66,9 @@ class Application:
                     'title_uppercase','title_color','artist','artist_size','artist_x','artist_y','artist_font',
                     'artist_bold','artist_italic','artist_uppercase','artist_color','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
             self.project_vars[key].trace_add('write',self.schedule_layout_preview)
+        self.title.trace_add('write',lambda *args:self.update_project_title())
+        self.artist.trace_add('write',lambda *args:self.update_project_title())
+        self.update_project_title()
         root.after(150,self.poll)
 
     def configure_theme(self):
@@ -86,6 +90,7 @@ class Application:
         style.configure('Heading.TLabel',font=(self.ui_font,17,'bold'))
         style.configure('CompactBrand.TLabel',background='#0b101a',font=(self.ui_font,15,'bold'))
         style.configure('Brand.TLabel',background='#0b101a',font=(self.ui_font,23,'bold'))
+        style.configure('ProjectName.TLabel',background='#0b101a',foreground='#b9d8ff',font=(self.ui_font,11,'bold'))
         style.configure('Subtitle.TLabel',background='#0b101a',foreground='#96a6bf')
         style.configure('Badge.TLabel',background='#192b40',foreground='#9ac7e8',padding=(12,6),font=(self.ui_font,9,'bold'))
         style.configure('TButton',background='#202e44',foreground='#e5ebf5',borderwidth=0,
@@ -131,9 +136,10 @@ class Application:
         header.columnconfigure(1,weight=1)
         brand=ttk.Frame(header,style='Shell.TFrame');brand.grid(row=0,column=0,sticky='w',padx=(0,14))
         ttk.Label(brand,text='DeRo / Cinematic Visualizer',style='CompactBrand.TLabel').pack(anchor='w')
-        ttk.Label(brand,text='Shape the sound. Set the atmosphere.',style='Subtitle.TLabel').pack(anchor='w',pady=(4,0))
+        ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
+                  wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='PREVIEW WORKSPACE  /  v0.1.11',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='PROJECT IDENTITY  /  v0.1.12',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -345,8 +351,10 @@ class Application:
         return self.save_project_file() if answer else True
 
     def update_project_title(self):
-        name=os.path.basename(self.project_path) if self.project_path else 'Untitled'
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.11 - Preview Workspace')
+        name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
+        display_name=os.path.splitext(name)[0] if self.project_path else name
+        self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.12 - Project Identity')
 
     def clear_media(self):
         self.pause()
