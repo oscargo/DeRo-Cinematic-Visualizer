@@ -17,6 +17,14 @@ class Settings:
     fps: int = 60
     title: str = "LOVE NIGHT"
     bars: int = 384
+    spectrum_style: str = 'Classic bars'
+    spectrum_mirrored: bool = True
+    spectrum_density: float = 1.
+    spectrum_fill: float = .58
+    spectrum_color_end: str = '#35a5ff'
+    frequency_min: float = 50.
+    frequency_max: float = 10584.
+    frequency_scale: str = 'Logarithmic'
     spectrum_gain: float = 1.0
     spectrum_width: float = 0.82
     spectrum_x: float = 0.5
@@ -40,6 +48,7 @@ class Settings:
     artist_color: str = "#f8f9fd"
     spectrum_height: float = 0.068
     particles_enabled: bool = True
+    particle_reactivity: str = 'Bass'
     particle_direction: str = 'Out'
     particle_reactive: bool = True
     particle_color: str = '#ebeef7'
@@ -59,7 +68,7 @@ class Settings:
     seed: int = 42
 
 
-def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int) -> np.ndarray:
+def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, frequency_min=50., frequency_max=None, frequency_scale='Logarithmic') -> np.ndarray:
     """Frequency-band energies (frames, bars) from mono 16/32bit decoded audio.
 
     Log-spaced bands from 50 Hz to min(14000, sample_rate * .48),
@@ -68,9 +77,14 @@ def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int) -
     """
     samples = np.asarray(samples, dtype=np.float32).reshape(-1)
     nframes = max(1, math.ceil(len(samples) / sample_rate * fps))
-    nfft = 4096
+    upper=min(14000,sample_rate*.48) if frequency_max is None else float(frequency_max)
+    if not 0<float(frequency_min)<upper<=sample_rate*.5:
+        raise ValueError('Frequency range must fit within the analysis sample rate.')
+    if not 16<=bars<=2048:raise ValueError('Band count must be between 16 and 2048.')
+    nfft = 8192 if sample_rate>22050 else 4096
     freqs = np.fft.rfftfreq(nfft, 1 / sample_rate)
-    edges = np.geomspace(50, min(14000, sample_rate * .48), bars + 1)
+    spacing=np.geomspace if frequency_scale=='Logarithmic' else np.linspace
+    edges = spacing(float(frequency_min),upper,bars+1)
     idx = np.searchsorted(freqs, edges)
     idx = np.clip(idx, 1, len(freqs) - 1)
     energies = np.zeros((nframes, bars), np.float32)
@@ -172,7 +186,7 @@ class Renderer:
         if self.features is None:
             bass_track = np.zeros(nframes, np.float32)
         else:
-            bass_track = np.mean(self.features[:, :max(1, self.s.bars//6)], axis=1)
+            bass_track = self.reactive_energy(self.features)
         smooth = 0.
         previous = 0.
         for i in range(nframes):
@@ -217,7 +231,7 @@ class Renderer:
         w,h = s.width,s.height
         img = self.base.copy().convert('RGBA')
         energy = self._energy(seconds)
-        bass = float(np.mean(energy[:max(1,s.bars//6)]))
+        bass = float(self.reactive_energy(energy))
         mid = float(np.mean(energy[s.bars//6:s.bars*2//3]))
         treble = float(np.mean(energy[s.bars*2//3:]))
         dust = Image.new('RGBA', (w,h))
@@ -249,23 +263,8 @@ class Renderer:
         self.compose_image_element(img)
         overlay=Image.new('RGBA',(w,h))
         g=ImageDraw.Draw(overlay,'RGBA')
-        center=round(w*s.spectrum_x)
-        baseline=round(h*s.spectrum_y)
-        sw=max(20,round(w*s.spectrum_width))
-        bandcount=s.bars//2
-        bw=sw/(s.bars+2)
-        maxbar=h*s.spectrum_height
-        # Mirrored left/right frequencies, low frequencies near center.
-        for k in range(bandcount):
-            idx = int(k / max(1,bandcount-1)*(s.bars-1))
-            amp = float(energy[idx])
-            height = max(1.0, (amp*s.spectrum_gain)**.9*maxbar)
-            xoff=(k+.5)*bw
-            barw=max(1, round(bw*.58))
-            for sign in (-1,1):
-                xx=round(center+sign*xoff)
-                g.rounded_rectangle((xx-barw//2, round(baseline-height), xx+barw//2, baseline), radius=barw//2,fill=tuple(bytes.fromhex(s.spectrum_color.lstrip('#')))+(220,))
-        g.line((center-sw/2,baseline+2,center+sw/2,baseline+2),fill=tuple(bytes.fromhex(s.spectrum_color.lstrip('#')))+(115,),width=max(1,round(h/1080)))
+        spectrum=self.spectrum_layer(energy)
+        img=Image.alpha_composite(img,spectrum)
         for row in ('title','artist'):
             text=getattr(s,row)
             if not text:continue
@@ -311,3 +310,63 @@ class Renderer:
             self.overlay_cache=image;self.overlay_cache_key=key
         image=self.overlay_cache
         frame.alpha_composite(image,(round(s.width*s.overlay_x-image.width/2),round(s.height*s.overlay_y-image.height/2)))
+
+    def spectrum_layer(self,energy):
+        s=self.s;w,h=s.width,s.height
+        layer=Image.new('RGBA',(w,h));draw=ImageDraw.Draw(layer)
+        center=w*s.spectrum_x;baseline=round(h*s.spectrum_y)
+        span=max(20,w*s.spectrum_width);maxheight=h*s.spectrum_height
+        count=max(8,min(4096,round(s.bars*s.spectrum_density)))
+        if s.spectrum_mirrored:
+            count=max(8,count//2*2)
+            half=count//2
+            indices=np.linspace(0,len(energy)-1,half).astype(int)
+            amplitudes=np.concatenate((energy[indices][::-1],energy[indices]))
+            color_positions=np.concatenate((np.linspace(1,0,half),np.linspace(0,1,half)))
+        else:
+            indices=np.linspace(0,len(energy)-1,count).astype(int)
+            amplitudes=energy[indices]
+            color_positions=np.linspace(0,1,count)
+        step=span/(count+2)
+        xs=center+(np.arange(count)-(count-1)/2)*step
+        heights=np.maximum(1,(amplitudes*s.spectrum_gain)**.9*maxheight)
+        primary=np.array(tuple(bytes.fromhex(s.spectrum_color[1:])))
+        secondary=np.array(tuple(bytes.fromhex(s.spectrum_color_end[1:])))
+        gradient=s.spectrum_style in ('Gradient bars','Reflected bars','Filled spectrum')
+        if s.spectrum_style=='Filled spectrum':
+            points=[(float(xs[0]),baseline)]+[(float(x),float(baseline-y)) for x,y in zip(xs,heights)]+[(float(xs[-1]),baseline)]
+            mask=Image.new('L',(w,h));ImageDraw.Draw(mask).polygon(points,fill=220)
+            colors=Image.new('RGBA',(w,h));cd=ImageDraw.Draw(colors)
+            for x in range(max(0,int(xs[0])),min(w,int(xs[-1])+1)):
+                ratio=abs(x-center)/(span/2) if s.spectrum_mirrored else (x-xs[0])/max(1,xs[-1]-xs[0])
+                rgb=tuple(np.round(primary*(1-ratio)+secondary*ratio).clip(0,255).astype(int))
+                cd.line((x,0,x,h),fill=rgb+(255,))
+            colors.putalpha(mask);layer=colors;draw=ImageDraw.Draw(layer)
+        else:
+            barwidth=max(1,round(step*s.spectrum_fill))
+            for x,height,ratio in zip(xs,heights,color_positions):
+                rgb=tuple(np.round(primary*(1-ratio)+secondary*ratio).astype(int)) if gradient else tuple(primary)
+                xx=round(float(x));top=round(float(baseline-height))
+                draw.rounded_rectangle((xx-barwidth//2,top,xx+barwidth//2,baseline),radius=barwidth//2,fill=rgb+(220,))
+        draw.line((center-span/2,baseline+2,center+span/2,baseline+2),fill=tuple(primary)+(115,),width=max(1,round(h/1080)))
+        if s.spectrum_style=='Glow bars':
+            glow=layer.filter(ImageFilter.GaussianBlur(max(1,h/270)))
+            layer=Image.alpha_composite(glow,layer)
+        if s.spectrum_style=='Reflected bars' and 0<baseline<h-3:
+            depth=min(h-baseline-3,max(1,round(maxheight*.7)),baseline+1)
+            reflection=layer.crop((0,0,w,baseline+1)).transpose(Image.Transpose.FLIP_TOP_BOTTOM).crop((0,0,w,depth))
+            alpha=np.asarray(reflection.getchannel('A'),dtype=np.float32)*np.linspace(.35,0,depth)[:,None]
+            reflection.putalpha(Image.fromarray(alpha.astype('uint8')))
+            layer.alpha_composite(reflection,(0,baseline+3))
+        return layer
+
+    def reactive_energy(self,features):
+        s=self.s
+        if s.particle_reactivity=='Displayed range':return np.mean(features,axis=-1)
+        spacing=np.geomspace if s.frequency_scale=='Logarithmic' else np.linspace
+        edges=spacing(s.frequency_min,s.frequency_max,features.shape[-1]+1)
+        centers=np.sqrt(edges[:-1]*edges[1:]) if s.frequency_scale=='Logarithmic' else (edges[:-1]+edges[1:])/2
+        low,high={'Bass':(20,250),'Vocals / Midrange':(250,4000),'Treble':(4000,20000)}[s.particle_reactivity]
+        selected=(centers>=low)&(centers<high)
+        if not selected.any():return np.zeros(features.shape[:-1],np.float32)
+        return np.mean(features[...,selected],axis=-1)

@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.20 — Particle Speed 30x
+# DeRo Cinematic Visualizer v0.1.21 — Spectrum Styles
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.21`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.22`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_20_Particle_Speed_30x.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_21_Spectrum_Styles.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_20_Particle_Speed_30x**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_21_Spectrum_Styles**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -274,3 +274,35 @@ percentage, and particle response. Faster particles leave the frame sooner,
 without wrapping or recycling.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_20_Particle_Speed_30x.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_20_Particle_Speed_30x.zip)
+
+## v0.1.21 — Spectrum Styles
+In **Visualizer**, choose Classic bars, Gradient bars, Glow bars, Reflected bars,
+or Filled spectrum. Toggle mirroring for centered bass with reflected sides, or
+a conventional bass-left/treble-right layout. Gradient styles use Spectrum color
+and Gradient end color. Reflection needs space below Spectrum Y to be visible.
+
+**Analysis bands** accepts 16–2048 with Fewer/More buttons. **Bar density** (25–200%)
+changes the number of drawn bars without changing frequency analysis.
+**Bar thickness** (10–100%) changes gaps between bars; Filled spectrum ignores gaps.
+A live summary reports the number of visible bars and mirrored positions. Very high
+counts are limited by output resolution and do not create additional audio detail.
+
+Frequency limits accept **20–20,000 Hz**, with Logarithmic or Linear spacing.
+Changing band count, range, or spacing automatically reanalyzes the music; styles,
+density, thickness, and colors update immediately. Ranges above 10,584 Hz use
+44,100 Hz analysis audio, enabling genuine high-frequency analysis up to 20 kHz.
+The original 50–10,584 Hz range and 384-band mirrored classic style remain defaults.
+
+Presets: **Whole spectrum** 20–20,000 Hz; **Bass** 20–250 Hz;
+**Vocals / Midrange** 250–4,000 Hz; **Treble** 4,000–20,000 Hz;
+**Original range** 50–10,584 Hz. Vocals/Midrange is a frequency emphasis, not
+vocal separation: instruments in that range remain visible too. These controls
+change visual analysis only; preview music and exported audio are not filtered.
+
+In **Elements**, **Beat source** selects Bass, Vocals/Midrange, Treble, or
+Displayed range for particle impulses. It operates inside the selected Visualizer
+range; an excluded source has no beat energy. Frequency presets automatically
+select Displayed range so particles follow the chosen frequency emphasis.
+All new settings are saved in projects.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_21_Spectrum_Styles.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_21_Spectrum_Styles.zip)

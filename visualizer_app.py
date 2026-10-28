@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.20 — Particle Speed 30x.
+"""DeRo Cinematic Visualizer v0.1.21 — Spectrum Styles.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -25,7 +25,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.20 - Particle Speed 30x')
+        self.root.title('DeRo Cinematic Visualizer v0.1.21 - Spectrum Styles')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -39,6 +39,7 @@ class Application:
             kind=tk.BooleanVar if isinstance(value,bool) else tk.IntVar if isinstance(value,int) else tk.DoubleVar if isinstance(value,float) else tk.StringVar
             self.project_vars[key]=kind(value=value)
             setattr(self,key,self.project_vars[key])
+        self.spectrum_summary=tk.StringVar(value='384 visible bars / 192 per side')
         self.project_path=None
         self.project_name=tk.StringVar(value='Untitled project')
         self.pending_selection=None
@@ -69,7 +70,8 @@ class Application:
         self.build()
         self.saved_project_state=self.project_state()
         self.root.protocol('WM_DELETE_WINDOW',self.close_project)
-        for key in ('particles_enabled','particle_direction','particle_reactive','particle_color','spectrum_color',
+        for key in ('bands','frequency_min','frequency_max','frequency_scale','spectrum_style','spectrum_mirrored',
+                    'spectrum_density','spectrum_fill','spectrum_color_end','particles_enabled','particle_reactivity','particle_direction','particle_reactive','particle_color','spectrum_color',
                     'overlay_enabled','overlay_path','overlay_size','overlay_x','overlay_y','overlay_opacity','overlay_shape',
                     'dust','reactive','sensitivity','title','title_size','title_x','title_y','title_font','title_bold','title_italic',
                     'title_uppercase','title_color','artist','artist_size','artist_x','artist_y','artist_font',
@@ -166,7 +168,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='PARTICLE SPEED 30X  /  v0.1.20',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='SPECTRUM STYLES  /  v0.1.21',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -267,7 +269,27 @@ class Application:
         arrows('artist')
         ttk.Button(controls,text='Reset artist layout',command=lambda:self.reset_layout('artist')).pack(fill='x',pady=(7,0))
         section('03  /  SPECTRUM')
-        field('Spectrum bands',self.bands,(32,64,96,128,192,256,384,512))
+        field('Appearance',self.spectrum_style,('Classic bars','Gradient bars','Glow bars','Reflected bars','Filled spectrum'))
+        ttk.Checkbutton(controls,text='Mirror around center',style='Switch.TCheckbutton',variable=self.spectrum_mirrored).pack(fill='x',pady=6)
+        numeric('Analysis bands',self.bands,16,2048,16)
+        band_buttons=ttk.Frame(controls);band_buttons.pack(fill='x',pady=6)
+        ttk.Button(band_buttons,text='Fewer bands',command=lambda:self.adjust_bands(-32)).pack(side='left',fill='x',expand=True)
+        ttk.Button(band_buttons,text='More bands',command=lambda:self.adjust_bands(32)).pack(side='left',fill='x',expand=True)
+        ttk.Label(controls,text='More bands = finer analysis; not always more independent detail.',style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=4)
+        numeric('Bar density (%)',self.spectrum_density,25,200,5)
+        ttk.Label(controls,textvariable=self.spectrum_summary,style='Section.TLabel',wraplength=240).pack(anchor='w',pady=6)
+        ttk.Label(controls,text='Draw fewer or more bars from the same analyzed frequencies.',style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=4)
+        numeric('Bar thickness (%)',self.spectrum_fill,10,100,5)
+        ttk.Label(controls,text='Thin = wider gaps; thick = tightly packed. Filled style ignores gaps.',style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=4)
+        field('Frequency spacing',self.frequency_scale,('Logarithmic','Linear'))
+        numeric('Minimum frequency (Hz)',self.frequency_min,20,19999,10)
+        numeric('Maximum frequency (Hz)',self.frequency_max,21,20000,100)
+        preset=tk.StringVar(value='Choose a frequency preset')
+        selector=ttk.Combobox(controls,textvariable=preset,state='readonly',values=('Original range','Whole spectrum','Bass','Vocals / Midrange','Treble'))
+        selector.pack(fill='x',pady=8)
+        selector.bind('<<ComboboxSelected>>',lambda event:self.set_frequency_preset(preset.get()))
+        ttk.Label(controls,text='Band/range changes reanalyze music automatically. Original: 50–10,584 Hz.',style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=4)
+        ttk.Button(controls,text='Gradient end color...',command=lambda:self.choose_element_color('spectrum_color_end')).pack(fill='x',pady=6)
         ttk.Button(controls,text='Spectrum color...',command=lambda:self.choose_element_color('spectrum_color')).pack(fill='x',pady=8)
         numeric('Spectrum sensitivity (x)',self.spectrum_gain,.1,3,.1)
         ttk.Label(controls,text='Lower = shorter bars',style='Muted.TLabel').pack(anchor='w',pady=(5,0))
@@ -286,6 +308,8 @@ class Application:
         section('04  /  ATMOSPHERE')
         ttk.Label(controls,text='PARTICLES',style='Section.TLabel').pack(anchor='w',pady=(0,8))
         ttk.Checkbutton(controls,text='Show particles',style='Switch.TCheckbutton',variable=self.particles_enabled).pack(anchor='w')
+        field('Beat source',self.particle_reactivity,('Bass','Vocals / Midrange','Treble','Displayed range'))
+        ttk.Label(controls,text='Uses frequencies inside the selected Visualizer range. Presets set this to Displayed range.',style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=5)
         field('Direction',self.particle_direction,('Out','Left','Right','Up','Down'))
         ttk.Checkbutton(controls,text='React to music',style='Switch.TCheckbutton',variable=self.particle_reactive).pack(anchor='w',pady=8)
         ttk.Button(controls,text='Particle color...',command=lambda:self.choose_element_color('particle_color')).pack(fill='x')
@@ -367,6 +391,16 @@ class Application:
             buttons.columnconfigure(i%3,weight=1)
             ttk.Button(buttons,text=label,command=cmd).grid(row=i//3,column=i%3,sticky='ew',padx=(0,6),pady=3)
 
+    def adjust_bands(self,delta):
+        try:self.bands.set(max(16,min(2048,self.bands.get()+delta)))
+        except (ValueError,tk.TclError):self.status.set('Enter a band count from 16 to 2048.')
+
+    def set_frequency_preset(self,name):
+        low,high={'Original range':(50,10584),'Whole spectrum':(20,20000),
+                  'Bass':(20,250),'Vocals / Midrange':(250,4000),'Treble':(4000,20000)}[name]
+        self.frequency_min.set(low);self.frequency_max.set(high)
+        self.particle_reactivity.set('Displayed range')
+
     def explain_particles(self):
         messagebox.showinfo('Particle controls',
             'Particle speed (0.1–30x): multiplies how fast every particle moves. '
@@ -419,17 +453,29 @@ class Application:
 
     def apply_layout_preview(self):
         self.layout_job=None
+        try:
+            count=max(8,min(4096,round(self.bands.get()*self.spectrum_density.get()/100)))
+            if self.spectrum_mirrored.get():
+                count=max(8,count//2*2)
+                summary=f'{count} visible bars / {count//2} per side'
+            else:summary=f'{count} visible bars / bass left, treble right'
+            self.spectrum_summary.set(summary)
+        except (ValueError,tk.TclError):pass
         if self.renderer is None:return
         try:
             values=validate_settings({key:var.get() for key,var in self.project_vars.items()})
+            if any(getattr(self.renderer.s,target)!=values[source] for target,source in
+                   (('bars','bands'),('frequency_min','frequency_min'),('frequency_max','frequency_max'),('frequency_scale','frequency_scale'))):
+                if not self.busy:self.prepare_preview()
+                return
             for key in ('title','title_font','title_bold','title_italic','title_uppercase','title_color',
                         'artist','artist_font','artist_bold','artist_italic','artist_uppercase','artist_color','spectrum_gain','particles_enabled','particle_color','spectrum_color',
-                        'overlay_enabled','overlay_path','overlay_shape'):
+                        'overlay_enabled','overlay_path','overlay_shape','spectrum_style','spectrum_mirrored','spectrum_color_end'):
                 setattr(self.renderer.s,key,values[key])
-            for key in ('title_size','title_x','title_y','artist_size','artist_x','artist_y','spectrum_width','spectrum_x','spectrum_y','spectrum_height','overlay_size','overlay_x','overlay_y','overlay_opacity'):
+            for key in ('title_size','title_x','title_y','artist_size','artist_x','artist_y','spectrum_width','spectrum_x','spectrum_y','spectrum_height','overlay_size','overlay_x','overlay_y','overlay_opacity','spectrum_density','spectrum_fill'):
                 setattr(self.renderer.s,key,values[key]/100)
             particle_values={'particle_speed':values['particle_speed'],'particle_direction':values['particle_direction'],
-                'particle_reactive':values['particle_reactive'],'dust_count':values['dust'],
+                'particle_reactive':values['particle_reactive'],'particle_reactivity':values['particle_reactivity'],'dust_count':values['dust'],
                 'reactive_fraction':values['reactive']/100,'sensitivity':values['sensitivity']}
             changed=any(getattr(self.renderer.s,key)!=value for key,value in particle_values.items())
             if changed:
@@ -480,7 +526,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.20 - Particle Speed 30x')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.21 - Spectrum Styles')
 
     def clear_media(self):
         self.pause()
@@ -581,7 +627,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Particle Speed 30x')
+        window.title('DeRo / Spectrum Styles')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -691,8 +737,12 @@ class Application:
             overlay_enabled=self.overlay_enabled.get(),overlay_path=self.overlay_path.get(),
             overlay_size=self.overlay_size.get()/100,overlay_x=self.overlay_x.get()/100,
             overlay_y=self.overlay_y.get()/100,overlay_opacity=self.overlay_opacity.get()/100,overlay_shape=self.overlay_shape.get(),
-            particles_enabled=self.particles_enabled.get(),particle_direction=self.particle_direction.get(),
+            particles_enabled=self.particles_enabled.get(),particle_reactivity=self.particle_reactivity.get(),particle_direction=self.particle_direction.get(),
             particle_reactive=self.particle_reactive.get(),particle_color=self.particle_color.get(),spectrum_color=self.spectrum_color.get(),
+            spectrum_style=self.spectrum_style.get(),spectrum_mirrored=self.spectrum_mirrored.get(),
+            spectrum_density=self.spectrum_density.get()/100,spectrum_fill=self.spectrum_fill.get()/100,
+            spectrum_color_end=self.spectrum_color_end.get(),frequency_min=self.frequency_min.get(),
+            frequency_max=self.frequency_max.get(),frequency_scale=self.frequency_scale.get(),
             spectrum_gain=self.spectrum_gain.get(),particle_speed=self.particle_speed.get(),artist=self.artist.get(),artist_size=self.artist_size.get()/100,
             artist_x=self.artist_x.get()/100,artist_y=self.artist_y.get()/100,
             artist_font=self.artist_font.get(),artist_bold=self.artist_bold.get(),
@@ -716,12 +766,14 @@ class Application:
                 if path==self.metadata_pending_path:
                     self.q.put(('metadata',(path,read_metadata(path))))
                 if self.samples is None or path != self.loaded_audio_path:
-                    samples,sr=load_audio(path)
+                    samples,sr=load_audio(path,sample_rate=44100 if settings.frequency_max>10584 else 22050)
                     playback=decode_preview(path)
                 else:
                     samples,sr=self.samples
+                    if sr!=(44100 if settings.frequency_max>10584 else 22050):
+                        samples,sr=load_audio(path,sample_rate=44100 if settings.frequency_max>10584 else 22050)
                     playback=self.preview_audio
-                features=audio_features(samples,sr,settings.fps,settings.bars)
+                features=audio_features(samples,sr,settings.fps,settings.bars,settings.frequency_min,settings.frequency_max,settings.frequency_scale)
                 renderer=Renderer(settings,features)
                 self.q.put(('ready',(samples,sr,features,renderer,path,playback)))
             except Exception as exc:self.q.put(('error',str(exc)))

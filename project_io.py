@@ -5,7 +5,10 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
-    'particles_enabled':True,'particle_direction':'Out','particle_reactive':True,
+    'spectrum_style':'Classic bars','spectrum_mirrored':True,'spectrum_density':100.0,
+    'spectrum_fill':58.0,'spectrum_color_end':'#35a5ff',
+    'frequency_min':50.0,'frequency_max':10584.0,'frequency_scale':'Logarithmic',
+    'particles_enabled':True,'particle_reactivity':'Bass','particle_direction':'Out','particle_reactive':True,
     'particle_color':'#ebeef7','spectrum_color':'#f0f6ff',
     'overlay_enabled':False,'overlay_path':'','overlay_size':20.0,'overlay_x':50.0,
     'overlay_y':50.0,'overlay_opacity':100.0,'overlay_shape':'Original',
@@ -21,11 +24,11 @@ for key in ('size','x','y','font','bold','italic','uppercase','color'):
     DEFAULTS['artist_'+key]=DEFAULTS['title_'+key]
 DEFAULTS.update(artist='',artist_size=1.5,artist_y=82.5)
 
-RANGES = {'overlay_size':(1,100),'overlay_x':(0,100),'overlay_y':(0,100),'overlay_opacity':(0,100),'spectrum_gain':(.1,3),'particle_speed':(.1,30),'dust':(0,800),'reactive':(0,100),'sensitivity':(.1,3),
+RANGES = {'frequency_min':(20,19999),'frequency_max':(21,20000),'spectrum_density':(25,200),'spectrum_fill':(10,100),'bands':(16,2048),'overlay_size':(1,100),'overlay_x':(0,100),'overlay_y':(0,100),'overlay_opacity':(0,100),'spectrum_gain':(.1,3),'particle_speed':(.1,30),'dust':(0,800),'reactive':(0,100),'sensitivity':(.1,3),
           'title_size':(.5,12),'title_x':(0,100),'title_y':(0,100),
           'spectrum_width':(10,100),'spectrum_x':(0,100),'spectrum_y':(0,100),
           'spectrum_height':(1,30)}
-CHOICES = {'particle_direction':('Out','Left','Right','Up','Down'),'overlay_shape':('Original','Circle'),'fps':(30,60),'bands':(32,64,96,128,192,256,384,512),
+CHOICES = {'particle_reactivity':('Bass','Vocals / Midrange','Treble','Displayed range'),'spectrum_style':('Classic bars','Gradient bars','Glow bars','Reflected bars','Filled spectrum'),'frequency_scale':('Logarithmic','Linear'),'particle_direction':('Out','Left','Right','Up','Down'),'overlay_shape':('Original','Circle'),'fps':(30,60),
            'res':('1920 x 1080','1280 x 720','854 x 480'), 'title_font':('Sans','Serif','Mono')}
 
 for key in ('size','x','y'):
@@ -48,10 +51,12 @@ def validate_settings(values):
             raise ValueError(f'Project setting out of range: {key}')
         if key in CHOICES and value not in CHOICES[key]:raise ValueError(f'Unsupported {key}')
         result[key]=value
-    for name in ('title_color','artist_color','particle_color','spectrum_color'):
+    for name in ('title_color','artist_color','particle_color','spectrum_color','spectrum_color_end'):
         color=result[name]
         if len(color)!=7 or color[0]!='#' or any(c not in '0123456789abcdefABCDEF' for c in color[1:]):
             raise ValueError('Text color must be a hex color (#RRGGBB).')
+    if result['frequency_min']>=result['frequency_max']:
+        raise ValueError('Minimum frequency must be lower than maximum frequency.')
     return result
 
 

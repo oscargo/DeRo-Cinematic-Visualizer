@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.21 — Spectrum Styles
+
+- Added Classic, Gradient, Glow, Reflected, and Filled spectrum styles and mirroring toggle.
+- Added 16–2048 analysis bands, independent density/thickness, and a live visible-bar count.
+- Added configurable 20–20,000 Hz ranges, spacing, and automatic frequency reanalysis.
+- Added Whole spectrum, Bass, Vocals/Midrange, Treble, and Original presets.
+- Added selectable particle beat sources; presets align particles with the displayed range.
+- Preserve original defaults, project compatibility, and unfiltered playback/export audio.
+
 ## v0.1.20 — Particle Speed 30x
 
 - Increased the particle speed limit to 30x in the UI and project validation.
