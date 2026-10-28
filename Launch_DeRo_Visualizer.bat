@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title DeRo Cinematic Visualizer v0.1.13 - Export Access
+title DeRo Cinematic Visualizer v0.1.14 - Particle Motion
 
 rem Find FFmpeg without requiring any Windows PATH changes.
 set "FFMPEG_DIR="

@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.13 — Export Access.
+"""DeRo Cinematic Visualizer v0.1.14 — Particle Motion.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview is silent; exports include audio.
@@ -23,7 +23,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.13 - Export Access')
+        self.root.title('DeRo Cinematic Visualizer v0.1.14 - Particle Motion')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -64,7 +64,7 @@ class Application:
         self.root.protocol('WM_DELETE_WINDOW',self.close_project)
         for key in ('title','title_size','title_x','title_y','title_font','title_bold','title_italic',
                     'title_uppercase','title_color','artist','artist_size','artist_x','artist_y','artist_font',
-                    'artist_bold','artist_italic','artist_uppercase','artist_color','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
+                    'artist_bold','artist_italic','artist_uppercase','artist_color','particle_speed','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
             self.project_vars[key].trace_add('write',self.schedule_layout_preview)
         self.title.trace_add('write',lambda *args:self.update_project_title())
         self.artist.trace_add('write',lambda *args:self.update_project_title())
@@ -139,7 +139,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='EXPORT ACCESS  /  v0.1.13',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='PARTICLE MOTION  /  v0.1.14',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -235,6 +235,7 @@ class Application:
         arrows('spectrum')
         ttk.Button(controls,text='Reset spectrum layout',command=lambda:self.reset_layout('spectrum')).pack(fill='x',pady=(7,0))
         section('04  /  ATMOSPHERE')
+        numeric('Particle speed (x)',self.particle_speed,.1,5,.1)
         for label,var,low,high,step in (('Dust particles',self.dust,0,800,1),
                 ('Reactive particles (%)',self.reactive,0,100,1),('Sensitivity',self.sensitivity,.1,3,.1)):
             row=ttk.Frame(controls);row.pack(fill='x',pady=(12,0))
@@ -309,6 +310,9 @@ class Application:
                 setattr(self.renderer.s,key,values[key])
             for key in ('title_size','title_x','title_y','artist_size','artist_x','artist_y','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
                 setattr(self.renderer.s,key,values[key]/100)
+            if self.renderer.s.particle_speed!=values['particle_speed']:
+                self.renderer.s.particle_speed=values['particle_speed']
+                self.renderer.trajectories=self.renderer._particle_trajectories()
             self.display_frame()
         except (ValueError,tk.TclError):pass
 
@@ -354,7 +358,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.13 - Export Access')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.14 - Particle Motion')
 
     def clear_media(self):
         self.pause()
@@ -509,7 +513,7 @@ class Application:
             title_x=self.title_x.get()/100,title_y=self.title_y.get()/100,title_font=self.title_font.get(),
             title_bold=self.title_bold.get(),title_italic=self.title_italic.get(),
             title_uppercase=self.title_uppercase.get(),title_color=self.title_color.get(),
-            artist=self.artist.get(),artist_size=self.artist_size.get()/100,
+            particle_speed=self.particle_speed.get(),artist=self.artist.get(),artist_size=self.artist_size.get()/100,
             artist_x=self.artist_x.get()/100,artist_y=self.artist_y.get()/100,
             artist_font=self.artist_font.get(),artist_bold=self.artist_bold.get(),
             artist_italic=self.artist_italic.get(),artist_uppercase=self.artist_uppercase.get(),

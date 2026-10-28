@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.14 — Particle Motion
+
+- Added a 0.1–5× particle speed control, live preview updates, and project persistence.
+- Preserved the 1× default and non-recycling outward motion.
+- Added descriptive version folders at the repository root for v0.1.6 through v0.1.14.
+- Added a matching named ZIP under releases/ for the current version.
+- Audio behavior unchanged pending clarification of the reported clipping.
+
 ## v0.1.13 — Export Access
 
 - Moved Open export folder beside Export MP4 in the export range panel.

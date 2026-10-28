@@ -38,6 +38,7 @@ class Settings:
     artist_uppercase: bool = False
     artist_color: str = "#f8f9fd"
     spectrum_height: float = 0.068
+    particle_speed: float = 1.0
     dust_count: int = 130
     reactive_fraction: float = 0.25
     sensitivity: float = 1.0
@@ -176,7 +177,7 @@ class Renderer:
             speed = np.linalg.norm(vel,axis=1)
             cap = .0065
             vel *= np.minimum(1., cap/np.maximum(speed,1e-9))[:,None]
-            pos += vel / self.s.fps
+            pos += vel * self.s.particle_speed / self.s.fps
             results[i] = pos
         return results
 

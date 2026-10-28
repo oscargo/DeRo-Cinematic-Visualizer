@@ -26,6 +26,18 @@ class ProjectTests(unittest.TestCase):
             save_project(path,DEFAULTS)
             self.assertEqual(load_project(path),(DEFAULTS,[0,None]))
 
+    def test_particle_speed_preserves_default_and_scales_motion(self):
+        features=np.zeros((60,32),np.float32)
+        slow=Renderer(Settings(width=160,height=90,bars=32,dust_count=3,particle_speed=1),features)
+        fast=Renderer(Settings(width=160,height=90,bars=32,dust_count=3,particle_speed=2),features)
+        origin=np.array([[p['x'],p['y']] for p in slow.particles])
+        np.testing.assert_allclose(fast.trajectories[-1]-origin,
+                                   2*(slow.trajectories[-1]-origin),atol=1e-6)
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'speed.dero'
+            save_project(path,dict(DEFAULTS,particle_speed=2.5))
+            self.assertEqual(load_project(path)[0]['particle_speed'],2.5)
+
     def test_invalid_project_data(self):
         for changes in ({'spectrum_width':101},{'title_x':float('nan')},{'fps':24},
                         {'title_color':'bad'},{'title_bold':'yes'},{'dust':3.2}):
