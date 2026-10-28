@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.9 — Studio Workflow
+
+- Highlighted Choose music and Choose background with distinct accent colors.
+- Added top-right New, Open, Save, and Save As buttons.
+- Added a resizable sidebar divider and explicit window resize support.
+- Widened the sidebar scrollbar with a brighter thumb and grip.
+- Timeline clicks and drags seek directly and start visual playback.
+- Added timeline navigation tests and updated release descriptions.
+
 ## v0.1.8 — Creative Projects
 
 - Added New, Open, Save, and Save As project commands with keyboard shortcuts.

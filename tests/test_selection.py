@@ -6,7 +6,8 @@ import tkinter as tk
 import unittest
 import wave
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+from types import SimpleNamespace
 
 import numpy as np
 from export_video import export
@@ -29,6 +30,25 @@ class SelectionTests(unittest.TestCase):
             self.app.selection_end.set(end)
             with self.assertRaises(ValueError):
                 self.app.selection_bounds()
+
+    def test_timeline_click_seeks_and_starts_without_duplicate_animation(self):
+        app=self.app
+        app.position=tk.DoubleVar(value=0,master=app.selection_start._root)
+        app.renderer=object();app.length=10;app.playing=False
+        app.scrub=Mock()
+        app.scrub.coords.side_effect=lambda value:(10+value*10,0)
+        app.display_frame=Mock();app.animate=Mock()
+        with patch('visualizer_app.time.monotonic',return_value=100):
+            self.assertEqual(app.timeline_click(SimpleNamespace(x=60)),'break')
+            self.assertEqual(app.position.get(),5)
+            self.assertEqual(app.t0,95)
+            self.assertTrue(app.playing)
+            self.assertFalse(app.play_selection)
+            app.timeline_click(SimpleNamespace(x=85))
+            self.assertEqual(app.position.get(),7.5)
+            app.animate.assert_called_once()
+            app.timeline_click(SimpleNamespace(x=-10))
+            self.assertEqual(app.position.get(),0)
 
     @unittest.skipUnless(shutil.which('ffmpeg') and shutil.which('ffprobe'), 'FFmpeg required')
     def test_trimmed_export(self):

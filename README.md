@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.8 — Creative Projects
+# DeRo Cinematic Visualizer v0.1.9 — Studio Workflow
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.9`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.10`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo-Cinematic-Visualizer-vMAJOR.MINOR.PATCH-Feature-Name`.
-This release: `DeRo-Cinematic-Visualizer-v0.1.8-Creative-Projects.zip`.
+This release: `DeRo-Cinematic-Visualizer-v0.1.9-Studio-Workflow.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -100,3 +100,18 @@ Spectrum Y sets its baseline. Title and spectrum move independently; Reset butto
 restore their default layouts. Edge positions can intentionally crop a title or spectrum.
 Layout and title edits appear immediately in an analyzed preview and are used in MP4/PNG exports.
 Refresh Preview after changing music analysis settings such as FPS or spectrum band count.
+
+## v0.1.9 — Studio Workflow
+A more accessible studio workspace with prominent media controls, flexible panel sizing,
+and direct timeline navigation. **Choose music** is teal and **Choose background** is
+lavender. **New, Open, Save, Save As** are always available at the top right.
+
+Resize or maximize the main window and drag the divider between the settings sidebar
+and preview to adjust panel widths. The minimum window size is 1040 × 820 to keep
+the controls usable. The sidebar has a wider, high-contrast scrollbar with a visible
+grip, hover feedback, and mouse-wheel scrolling.
+
+Click anywhere on the playback timeline to seek to that position and start playback;
+drag to continuously reposition. This leaves selection-loop mode and plays from the
+clicked position to the song end without altering the export range. Preview playback
+remains silent; the exported video contains music.

@@ -1,4 +1,9 @@
-"""Standalone Tkinter GUI; renderer and exporter don't depend on Tkinter."""
+"""DeRo Cinematic Visualizer v0.1.9 — Studio Workflow.
+
+Resizable dark desktop studio with project controls, highlighted media actions,
+and click-to-play timeline navigation. Preview is silent; exports include audio.
+Renderer and exporter are independent of Tkinter.
+"""
 import os
 import json
 import subprocess
@@ -18,9 +23,10 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.8 - Creative Projects')
+        self.root.title('DeRo Cinematic Visualizer v0.1.9 - Studio Workflow')
         self.root.geometry('1400x940')
-        self.root.minsize(1120,820)
+        self.root.minsize(1040,820)
+        self.root.resizable(True,True)
         self.preview_frame=None
         self.preview_resize_job=None
         self.folder_preferences = self._load_folder_preferences()
@@ -85,7 +91,14 @@ class Application:
                   foreground=[('disabled','#5f6e85')])
         style.configure('Accent.TButton',background='#82b8f9',foreground='#0c192b',font=(self.ui_font,10,'bold'))
         style.map('Accent.TButton',background=[('pressed','#5795e3'),('active','#a1ccff')])
-        for name in ('TEntry','TCombobox','TSpinbox'):
+        for name,color,hover in (('Music.TButton','#65cbb6','#8ae1cf'),('Image.TButton','#b4a2ef','#cbbcf9')):
+            style.configure(name,background=color,foreground='#0c192b',font=(self.ui_font,10,'bold'))
+            style.map(name,background=[('pressed',hover),('active',hover)])
+        style.configure('Studio.Vertical.TScrollbar',background='#8faed6',troughcolor='#17243a',
+                        bordercolor='#17243a',lightcolor='#8faed6',darkcolor='#8faed6',
+                        arrowcolor='#10213a',arrowsize=24,width=24,gripsize=18)
+        style.map('Studio.Vertical.TScrollbar',background=[('pressed','#c1dafa'),('active','#afcff7')])
+        for name in ('TEntry' ,'TCombobox','TSpinbox'):
             style.configure(name,fieldbackground='#192538',background='#263752',foreground='#edf3ff',
                             bordercolor='#2a3a52',lightcolor='#2a3a52',darkcolor='#2a3a52',
                             insertcolor='#ffffff',arrowsize=13,padding=7)
@@ -109,21 +122,27 @@ class Application:
         for shortcut,command in (('<Control-n>',self.new_project),('<Control-o>',self.open_project),
                 ('<Control-s>',self.save_project_file),('<Control-Shift-S>',lambda:self.save_project_file(True))):
             self.root.bind(shortcut,lambda event,cmd=command:cmd())
-        shell=ttk.Frame(self.root,style='Shell.TFrame',padding=(24,18))
+        shell=ttk.Frame(self.root,style='Shell.TFrame',padding=(20,12))
         shell.pack(fill='both',expand=True)
-        header=ttk.Frame(shell,style='Shell.TFrame');header.pack(fill='x',pady=(0,18))
+        header=ttk.Frame(shell,style='Shell.TFrame');header.pack(fill='x',pady=(0,10))
         brand=ttk.Frame(header,style='Shell.TFrame');brand.pack(side='left')
         ttk.Label(brand,text='DeRo  /  Cinematic Visualizer',style='Brand.TLabel').pack(anchor='w')
         ttk.Label(brand,text='Shape the sound. Set the atmosphere.',style='Subtitle.TLabel').pack(anchor='w',pady=(4,0))
-        ttk.Label(header,text='CREATIVE PROJECTS  /  v0.1.8',style='Badge.TLabel').pack(side='right')
-        body=ttk.Frame(shell,style='Shell.TFrame');body.pack(fill='both',expand=True)
-        body.columnconfigure(1,weight=1);body.rowconfigure(0,weight=1)
+        project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.pack(side='right',padx=(12,0))
+        ttk.Label(project_actions,text='STUDIO WORKFLOW  /  v0.1.9',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
+        for label,command in (('New',self.new_project),('Open',self.open_project),
+                              ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
+            ttk.Button(project_buttons,text=label,command=command,padding=(10,7)).pack(side='left',padx=(4,0))
+        body=tk.PanedWindow(shell,orient='horizontal',background='#263b57',borderwidth=0,
+                            sashwidth=12,sashpad=3,showhandle=True,handlesize=24,opaqueresize=True)
+        body.pack(fill='both',expand=True)
         sidebar=ttk.Frame(body,padding=18,width=290)
-        sidebar.grid(row=0,column=0,sticky='nsew',padx=(0,18));sidebar.grid_propagate(False)
+        body.add(sidebar,minsize=280,width=320,stretch='never')
         sidebar.columnconfigure(0,weight=1)
         # Scroll the inspector on smaller screens and with large system fonts.
         inspector=tk.Canvas(sidebar,background='#101827',highlightthickness=0,width=254)
-        scroll=ttk.Scrollbar(sidebar,orient='vertical',command=inspector.yview)
+        scroll=ttk.Scrollbar(sidebar,orient='vertical',command=inspector.yview,style='Studio.Vertical.TScrollbar')
         inspector.configure(yscrollcommand=scroll.set)
         inspector.grid(row=0,column=0,sticky='nsew');scroll.grid(row=0,column=1,sticky='ns')
         sidebar.rowconfigure(0,weight=1)
@@ -152,9 +171,9 @@ class Application:
         ttk.Label(controls,text='Build a scene around your music.',style='Muted.TLabel').pack(anchor='w',pady=(5,0))
         section('01  /  SOURCE')
         field('Music file',self.audio)
-        ttk.Button(controls,text='Choose music...',command=self.browse_audio).pack(fill='x',pady=(6,2))
+        ttk.Button(controls,text='Choose music...',style='Music.TButton',command=self.browse_audio).pack(fill='x',pady=(6,2))
         field('Background image / optional',self.background)
-        ttk.Button(controls,text='Choose image...',command=self.browse_background).pack(fill='x',pady=(6,2))
+        ttk.Button(controls,text='Choose background...',style='Image.TButton',command=self.browse_background).pack(fill='x',pady=(6,2))
         section('02  /  TITLE & LAYOUT')
         field('Display title',self.title)
         field('Typeface',self.title_font,('Sans','Serif','Mono'))
@@ -199,7 +218,7 @@ class Application:
         ttk.Button(controls,text='Quick test / 480p / 30 FPS',command=self.quick_test_preset).pack(fill='x',pady=(10,0))
         ttk.Button(controls,text='Open export folder',command=self.open_export_folder).pack(fill='x',pady=(8,12))
 
-        workspace=ttk.Frame(body,style='Shell.TFrame');workspace.grid(row=0,column=1,sticky='nsew')
+        workspace=ttk.Frame(body,style='Shell.TFrame');body.add(workspace,minsize=620,stretch='always')
         workspace.columnconfigure(0,weight=1);workspace.rowconfigure(0,weight=1)
         preview=ttk.Frame(workspace,padding=16);preview.grid(row=0,column=0,sticky='nsew')
         preview.columnconfigure(0,weight=1);preview.rowconfigure(1,weight=1)
@@ -217,6 +236,8 @@ class Application:
         ttk.Button(transport,text='Play / Pause',command=self.toggle_play).pack(side='left')
         self.scrub=ttk.Scale(transport,from_=0,to=100,variable=self.position,command=lambda _:self.display_frame())
         self.scrub.pack(side='left',fill='x',expand=True,padx=12)
+        self.scrub.bind('<Button-1>',self.timeline_click)
+        self.scrub.bind('<B1-Motion>',self.timeline_click)
         ttk.Label(transport,text='SILENT PREVIEW',style='Section.TLabel').pack(side='right')
 
         selection=ttk.Frame(workspace,padding=(16,12));selection.grid(row=1,column=0,sticky='ew',pady=(12,0))
@@ -306,7 +327,7 @@ class Application:
 
     def update_project_title(self):
         name=os.path.basename(self.project_path) if self.project_path else 'Untitled'
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.8 - Creative Projects')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.9 - Studio Workflow')
 
     def clear_media(self):
         self.pause()
@@ -563,6 +584,23 @@ class Application:
         self.t0=time.monotonic()-start
         self.playing=True
         if not already_playing:self.animate()
+
+    def timeline_click(self,event):
+        """Seek exactly to the pointer instead of the scale's default step."""
+        if self.renderer is None or self.length<=0:return 'break'
+        left=self.scrub.coords(0)[0]
+        right=self.scrub.coords(self.length)[0]
+        fraction=max(0,min(1,(event.x-left)/max(1,right-left)))
+        seconds=fraction*self.length
+        already_playing=self.playing
+        self.play_selection=False
+        self.loop_selection=False
+        self.position.set(seconds)
+        self.t0=time.monotonic()-seconds
+        self.display_frame()
+        self.playing=True
+        if not already_playing:self.animate()
+        return 'break'
 
     def toggle_play(self):
         if self.playing:self.pause();return
