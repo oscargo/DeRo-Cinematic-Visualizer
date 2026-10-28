@@ -12,7 +12,7 @@ DEFAULTS = {
     'particle_color':'#ebeef7','spectrum_color':'#f0f6ff',
     'overlay_enabled':False,'overlay_path':'','overlay_size':20.0,'overlay_x':50.0,
     'overlay_y':50.0,'overlay_opacity':100.0,'overlay_shape':'Original',
-    'completion_sound':True, 'preview_sound':True, 'audio':'', 'background':'', 'title':'', 'dust':130, 'reactive':25,
+    'auto_open_export':True, 'completion_sound':True, 'preview_sound':True, 'audio':'', 'background':'', 'title':'', 'dust':130, 'reactive':25,
     'sensitivity':1.0, 'fps':60, 'bands':384, 'res':'1920 x 1080',
     'title_size':2.0, 'title_x':50.0, 'title_y':79.0, 'title_font':'Sans',
     'title_bold':False, 'title_italic':False, 'title_uppercase':False,

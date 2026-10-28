@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.23 — Resets & Export Alerts
+
+- Added individual setting resets, panel resets, and confirmed all-settings reset.
+- Preserve selected files, song names, project path, and range during broad resets.
+- Restore original loaded song/artist names with individual text resets.
+- Added a generated three-note chime, test button, and visible sound-failure reporting.
+- Make successful export notification a prominent green top banner.
+- Added optional auto-open with a two-second delay to allow the alert to be seen/heard.
+
 ## v0.1.22 — Smooth Spectrum Mapping
 
 - Replace integer FFT-bin rounding with fractional frequency-band power integration.

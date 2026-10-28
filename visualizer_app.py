@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.22 — Smooth Spectrum Mapping.
+"""DeRo Cinematic Visualizer v0.1.23 — Resets & Export Alerts.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -25,7 +25,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.22 - Smooth Spectrum Mapping')
+        self.root.title('DeRo Cinematic Visualizer v0.1.23 - Resets & Export Alerts')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -40,6 +40,8 @@ class Application:
             self.project_vars[key]=kind(value=value)
             setattr(self,key,self.project_vars[key])
         self.spectrum_summary=tk.StringVar(value='384 visible bars / 192 per side')
+        self.reset_text_defaults={'title':'','artist':''}
+        self.reset_buttons={}
         self.project_path=None
         self.project_name=tk.StringVar(value='Untitled project')
         self.pending_selection=None
@@ -68,9 +70,10 @@ class Application:
         self.preview_audio=None
         self.t0=0.0
         self.build()
+        self.install_reset_controls()
         self.saved_project_state=self.project_state()
         self.root.protocol('WM_DELETE_WINDOW',self.close_project)
-        for key in ('bands','frequency_min','frequency_max','frequency_scale','spectrum_style','spectrum_mirrored',
+        for key in ('fps','bands','frequency_min','frequency_max','frequency_scale','spectrum_style','spectrum_mirrored',
                     'spectrum_density','spectrum_fill','spectrum_color_end','particles_enabled','particle_reactivity','particle_direction','particle_reactive','particle_color','spectrum_color',
                     'overlay_enabled','overlay_path','overlay_size','overlay_x','overlay_y','overlay_opacity','overlay_shape',
                     'dust','reactive','sensitivity','title','title_size','title_x','title_y','title_font','title_bold','title_italic',
@@ -128,7 +131,9 @@ class Application:
         style.configure('Horizontal.TProgressbar',background='#82b8f9',troughcolor='#1c2b41',borderwidth=0)
         style.configure('TCheckbutton',background='#101827',foreground='#e5ebf5',padding=2)
         style.map('TCheckbutton',background=[('active','#192538')])
-        style.configure('Success.TLabel',background='#101827',foreground='#80e0bc',font=(self.ui_font,10,'bold'))
+        style.configure('Success.TFrame',background='#123b30',relief='solid',borderwidth=1)
+        style.configure('Success.TLabel',background='#123b30',foreground='#b6f7d1',font=(self.ui_font,12,'bold'))
+        style.configure('SuccessBody.TLabel',background='#123b30',foreground='#d6efe1')
         style.configure('TSeparator',background='#263247')
         self.switch_images=[]
         for enabled in (False,True):
@@ -168,12 +173,13 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='SMOOTH SPECTRUM MAPPING  /  v0.1.22',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='RESETS & EXPORT ALERTS  /  v0.1.23',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
             ttk.Button(project_buttons,text=label,command=command,padding=(10,7)).pack(side='left',padx=(4,0))
-        export_status=ttk.Frame(header,padding=(10,8))
+        export_status=ttk.Frame(header,padding=(12,10))
+        self.notification_frame=export_status
         export_status.grid(row=0,column=1,sticky='ew')
         self.notification_heading=ttk.Label(export_status,text='Export status',style='Section.TLabel')
         self.notification_heading.pack(anchor='w')
@@ -181,7 +187,8 @@ class Application:
         self.progress.pack(fill='x',pady=(6,4))
         self.status_label=ttk.Label(export_status,textvariable=self.status,style='Muted.TLabel',width=1,anchor='w')
         self.status_label.pack(fill='x')
-        ttk.Label(export_status,text='Preview sound is switchable / Export includes music',style='Muted.TLabel').pack(anchor='w',pady=(3,0))
+        self.notification_caption=ttk.Label(export_status,text='Preview sound is switchable / Export includes music',style='Muted.TLabel')
+        self.notification_caption.pack(anchor='w',pady=(3,0))
         body=tk.PanedWindow(shell,orient='horizontal',background='#0b101a',borderwidth=0,
                             sashwidth=5,sashpad=0,showhandle=False,
                             sashcursor='sb_h_double_arrow',opaqueresize=True)
@@ -219,7 +226,8 @@ class Application:
                   '03  /  SPECTRUM':'Visualizer','04  /  ATMOSPHERE':'Elements','05  /  OUTPUT':'Output'}[text]
             controls=ttk.Frame(content_root,padding=(10,4,10,14))
             self.inspector_pages[name]=controls
-            ttk.Label(controls,text=name,style='Heading.TLabel').pack(anchor='w',pady=(5,14))
+            ttk.Label(controls,text=name,style='Heading.TLabel').pack(anchor='w',pady=(5,8))
+            ttk.Button(controls,text='Reset this panel',command=lambda n=name:self.reset_panel(n)).pack(fill='x',pady=(0,12))
             button=ttk.Button(rail,text=name,width=9,padding=(6,18),command=lambda n=name:self.show_inspector(n))
             button.pack(fill='x',pady=(0,8))
             self.navigation_buttons[name]=button
@@ -241,7 +249,7 @@ class Application:
         field('Typeface',self.title_font,('Sans','Serif','Mono'))
         styles=ttk.Frame(controls);styles.pack(fill='x',pady=8)
         for label,var in (('Bold',self.title_bold),('Italic',self.title_italic),('Caps',self.title_uppercase)):
-            ttk.Checkbutton(styles,text=label,variable=var).pack(side='left')
+            ttk.Checkbutton(styles,text=label,variable=var).pack(fill='x',pady=2)
         ttk.Button(controls,text='Title color...',command=self.choose_title_color).pack(fill='x')
         def numeric(label,var,low,high,step=1):
             row=ttk.Frame(controls);row.pack(fill='x',pady=(9,0))
@@ -261,7 +269,7 @@ class Application:
         field('Artist typeface',self.artist_font,('Sans','Serif','Mono'))
         artist_styles=ttk.Frame(controls);artist_styles.pack(fill='x',pady=8)
         for label,var in (('Bold',self.artist_bold),('Italic',self.artist_italic),('Caps',self.artist_uppercase)):
-            ttk.Checkbutton(artist_styles,text=label,variable=var).pack(side='left')
+            ttk.Checkbutton(artist_styles,text=label,variable=var).pack(fill='x',pady=2)
         ttk.Button(controls,text='Artist color...',command=lambda:self.choose_title_color('artist')).pack(fill='x')
         numeric('Artist size (% height)',self.artist_size,.5,12,.1)
         numeric('Artist X (%)',self.artist_x,0,100)
@@ -285,8 +293,11 @@ class Application:
         numeric('Minimum frequency (Hz)',self.frequency_min,20,19999,10)
         numeric('Maximum frequency (Hz)',self.frequency_max,21,20000,100)
         preset=tk.StringVar(value='Choose a frequency preset')
-        selector=ttk.Combobox(controls,textvariable=preset,state='readonly',values=('Original range','Whole spectrum','Bass','Vocals / Midrange','Treble'))
-        selector.pack(fill='x',pady=8)
+        self.frequency_preset_var=preset
+        preset_row=ttk.Frame(controls);preset_row.pack(fill='x',pady=8)
+        selector=ttk.Combobox(preset_row,textvariable=preset,state='readonly',values=('Original range','Whole spectrum','Bass','Vocals / Midrange','Treble'))
+        ttk.Button(preset_row,text='Reset',width=5,padding=(4,5),command=self.reset_frequency_controls).pack(side='right',padx=(5,0))
+        selector.pack(side='left',fill='x',expand=True)
         selector.bind('<<ComboboxSelected>>',lambda event:self.set_frequency_preset(preset.get()))
         ttk.Label(controls,text='Band/range changes reanalyze music automatically. Original: 50–10,584 Hz.',style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=4)
         ttk.Button(controls,text='Gradient end color...',command=lambda:self.choose_element_color('spectrum_color_end')).pack(fill='x',pady=6)
@@ -336,6 +347,8 @@ class Application:
         field('Resolution',self.res,('1920 x 1080','1280 x 720','854 x 480'))
         field('Frames per second',self.fps,(60,30))
         ttk.Checkbutton(controls,text='Export completion tone',style='Switch.TCheckbutton',variable=self.completion_sound).pack(anchor='w',pady=(10,0))
+        ttk.Checkbutton(controls,text='Open video after export',style='Switch.TCheckbutton',variable=self.auto_open_export).pack(anchor='w',pady=(6,0))
+        ttk.Button(controls,text='Test completion chime',command=self.play_completion_chime).pack(fill='x',pady=6)
         ttk.Button(controls,text='Quick test / 480p / 30 FPS',command=self.quick_test_preset).pack(fill='x',pady=(10,0))
 
         self.inspector_canvas=inspector
@@ -390,6 +403,95 @@ class Application:
                 ('Play from start',lambda:self.start_playback(False)))):
             buttons.columnconfigure(i%3,weight=1)
             ttk.Button(buttons,text=label,command=cmd).grid(row=i//3,column=i%3,sticky='ew',padx=(0,6),pady=3)
+
+    def play_completion_chime(self):
+        completion_tone(on_error=lambda error:self.q.put(('tone_error',error)))
+
+    def notification_state(self,success=False):
+        self.notification_frame.configure(style='Success.TFrame' if success else 'TFrame')
+        self.status_label.configure(style='SuccessBody.TLabel' if success else 'Muted.TLabel')
+        self.notification_caption.configure(style='SuccessBody.TLabel' if success else 'Muted.TLabel',
+            text='Saved successfully / No export errors' if success else 'Preview sound is switchable / Export includes music')
+
+    def reset_frequency_controls(self):
+        for key in ('frequency_min','frequency_max','frequency_scale','particle_reactivity'):self.reset_setting(key)
+        self.frequency_preset_var.set('Original range')
+
+    def reset_setting(self,key):
+        if key in ('title','artist'):
+            value=self.reset_text_defaults.get(key,'')
+        else:value=DEFAULTS[key]
+        # Keep a valid frequency range when resetting one dependent endpoint.
+        if key=='frequency_min':
+            try:
+                if self.frequency_max.get()<=value:self.frequency_max.set(DEFAULTS['frequency_max'])
+            except (ValueError,tk.TclError):self.frequency_max.set(DEFAULTS['frequency_max'])
+        if key=='frequency_max':
+            try:
+                if self.frequency_min.get()>=value:self.frequency_min.set(DEFAULTS['frequency_min'])
+            except (ValueError,tk.TclError):self.frequency_min.set(DEFAULTS['frequency_min'])
+        self.project_vars[key].set(value)
+        if key=='preview_sound':self.toggle_sound()
+        self.schedule_layout_preview()
+
+    def panel_setting_keys(self,name):
+        keys=[key for key in DEFAULTS if key not in ('audio','background','overlay_path')]
+        if name=='Audio':return ['preview_sound']
+        if name=='Backdrop':return []
+        if name=='Text':return [key for key in keys if key.startswith(('title','artist'))]
+        if name=='Visualizer':return [key for key in keys if key.startswith(('spectrum_','frequency_')) or key=='bands']
+        if name=='Elements':return [key for key in keys if key.startswith(('particle','overlay_')) or key in ('dust','reactive','sensitivity')]
+        return ['res','fps','completion_sound','auto_open_export']
+
+    def reset_panel(self,name):
+        keys=self.panel_setting_keys(name)
+        if not keys:
+            self.status.set('Backdrop has a file selection only. Use default backdrop to remove the image.')
+            return
+        for key in keys:
+            if key not in ('title','artist'):self.reset_setting(key)
+        self.status.set(name+' settings restored to defaults. Selected files and song names kept.')
+
+    def reset_all_settings(self):
+        if not messagebox.askyesno('Reset all settings',
+            'Restore all appearance, particle, playback, and output settings to defaults?\n\n'
+            'Your selected files, song/artist names, project path, and export range will be kept.',parent=self.root):return
+        for key in DEFAULTS:
+            if key not in ('audio','background','overlay_path','title','artist'):self.reset_setting(key)
+        self.status.set('All settings restored to defaults. Files, song names, and selection kept.')
+
+    def install_reset_controls(self):
+        variables={str(var):key for key,var in self.project_vars.items()}
+        skip={'audio','background','overlay_path'}
+        colors={'Title color...':'title_color','Artist color...':'artist_color',
+            'Spectrum color...':'spectrum_color','Gradient end color...':'spectrum_color_end','Particle color...':'particle_color'}
+        def walk(parent):
+            for widget in parent.winfo_children():
+                yield widget
+                yield from walk(widget)
+        for widget in list(walk(self.root)):
+            key=None
+            if isinstance(widget,(ttk.Entry,ttk.Combobox,ttk.Spinbox)):
+                key=variables.get(str(widget.cget('textvariable')))
+            elif isinstance(widget,ttk.Checkbutton):key=variables.get(str(widget.cget('variable')))
+            elif isinstance(widget,ttk.Button):key=colors.get(str(widget.cget('text')))
+            if key is None or key in skip or widget.winfo_manager()!='pack':continue
+            info=widget.pack_info();parent=info.pop('in')
+            row=ttk.Frame(parent)
+            row.pack(before=widget,**info)
+            options={name:values[-1] for name,values in widget.configure().items() if name!='class'}
+            bindings={sequence:widget.bind(sequence) for sequence in widget.bind()}
+            widget.pack_forget()
+            # Recreate the visible control with the row as its actual parent.
+            # Retain the hidden original so its registered Tcl callbacks remain valid.
+            replacement=type(widget)(row,**options)
+            for sequence,script in bindings.items():replacement.bind(sequence,script)
+            reset=ttk.Button(row,text='Reset',width=5,padding=(4,5),command=lambda k=key:self.reset_setting(k))
+            reset.pack(side='right',padx=(5,0))
+            replacement.pack(side='left',fill='x',expand=True)
+            self.reset_buttons.setdefault(key,[]).append(reset)
+        ttk.Button(self.inspector_canvas.master,text='Reset all settings',command=self.reset_all_settings).grid(
+            row=1,column=0,columnspan=3,sticky='ew',pady=(10,0))
 
     def adjust_bands(self,delta):
         try:self.bands.set(max(16,min(2048,self.bands.get()+delta)))
@@ -465,7 +567,7 @@ class Application:
         try:
             values=validate_settings({key:var.get() for key,var in self.project_vars.items()})
             if any(getattr(self.renderer.s,target)!=values[source] for target,source in
-                   (('bars','bands'),('frequency_min','frequency_min'),('frequency_max','frequency_max'),('frequency_scale','frequency_scale'))):
+                   (('fps','fps'),('bars','bands'),('frequency_min','frequency_min'),('frequency_max','frequency_max'),('frequency_scale','frequency_scale'))):
                 if not self.busy:self.prepare_preview()
                 return
             for key in ('title','title_font','title_bold','title_italic','title_uppercase','title_color',
@@ -526,7 +628,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.22 - Smooth Spectrum Mapping')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.23 - Resets & Export Alerts')
 
     def clear_media(self):
         self.pause()
@@ -543,6 +645,7 @@ class Application:
             self.fullscreen_canvas.configure(image='',text='Choose music to preview.')
         self.update_selection()
         self.last_export_path=None
+        self.notification_state()
         self.notification_heading.configure(text='Export status',style='Section.TLabel')
 
     def new_project(self):
@@ -550,6 +653,7 @@ class Application:
         self.clear_media()
         for key,value in DEFAULTS.items():self.project_vars[key].set(value)
         self.project_path=None
+        self.reset_text_defaults={'title':'','artist':''}
         self.saved_project_state=self.project_state()
         self.update_project_title()
         self.status.set('New project. All composition settings restored to defaults.')
@@ -585,6 +689,7 @@ class Application:
         self.clear_media()
         for key,value in values.items():self.project_vars[key].set(value)
         self.project_path=os.path.abspath(path)
+        self.reset_text_defaults={key:values[key] for key in ('title','artist')}
         self.selection_start.set(selection[0]);self.selection_end.set(selection[1] or 0)
         self.pending_selection=selection
         self.saved_project_state=self.project_state()
@@ -627,7 +732,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Smooth Spectrum Mapping')
+        window.title('DeRo / Resets & Export Alerts')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -988,6 +1093,7 @@ class Application:
         if os.path.abspath(out)==os.path.abspath(self.audio.get()):return messagebox.showerror('Invalid path','Export path must differ from input.')
         self.pause()
         self.busy=True
+        self.notification_state()
         self.notification_heading.configure(text='Exporting video',style='Section.TLabel')
         self.progress['value']=0
         self.status.set('Exporting video. High-resolution rendering may be slow.')
@@ -1001,6 +1107,12 @@ class Application:
             except Exception as exc:self.q.put(('error',str(exc)))
         threading.Thread(target=worker,daemon=True).start()
 
+    def open_completed_export(self,path):
+        if self.last_export_path!=path:return
+        try:self._open_path(path)
+        except OSError as exc:
+            messagebox.showwarning('Export saved',f'Export completed, but the video could not open automatically.\n\n{path}\n\n{exc}')
+
     def poll(self):
         try:
             while True:
@@ -1010,6 +1122,7 @@ class Application:
                     if path==self.audio.get().strip() and path==self.metadata_pending_path:
                         self.title.set(tags['title'] or os.path.splitext(os.path.basename(path))[0])
                         self.artist.set(tags['artist'])
+                        self.reset_text_defaults={'title':self.title.get(),'artist':self.artist.get()}
                         self.metadata_pending_path=None
                 elif kind=='ready':
                     samples,sr,features,renderer,path,playback=data
@@ -1037,25 +1150,27 @@ class Application:
                     self.display_frame()
                 elif kind=='error':
                     self.busy=False
+                    self.notification_state()
                     self.notification_heading.configure(text='Action failed',style='Section.TLabel')
                     self.status.set('Error: '+data)
                     messagebox.showerror('Visualizer',data)
+                elif kind=='tone_error':
+                    self.notification_caption.configure(text='Completion sound unavailable / Check audio output and volume')
+                    self.status.set('Sound could not play: '+data)
                 elif kind=='progress':
                     i,n=data;self.progress['value']=i/n*100
                     self.status.set(f'Exporting MP4: {i/n*100:.1f}% ({i}/{n} frames)')
                 elif kind=='finished':
                     self.busy=False;self.progress['value']=100
-                    self.notification_heading.configure(text='Export complete',style='Success.TLabel')
+                    self.notification_state(True)
+                    self.notification_heading.configure(text='Export finished successfully',style='Success.TLabel')
                     self.status.set('Saved: '+os.path.basename(data))
-                    if self.completion_sound.get():completion_tone()
+                    if self.completion_sound.get():self.play_completion_chime()
                     self.last_export_path=os.path.abspath(data)
-                    try:
-                        self._open_path(self.last_export_path)
-                    except OSError as exc:
-                        messagebox.showwarning('Export saved',
-                            f'Export completed, but Windows could not open the MP4 automatically.\n\n'
-                            f'{self.last_export_path}\n\n{exc}\n\n'
-                            'Use Open Export Folder to find the file.')
+                    if self.auto_open_export.get():
+                        # Leave time to see the banner and hear the chime before
+                        # another video player takes focus and starts its audio.
+                        self.root.after(2000,lambda path=self.last_export_path:self.open_completed_export(path))
         except queue.Empty:pass
         self.root.after(150,self.poll)
 
