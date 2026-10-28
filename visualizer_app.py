@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.17 — Fullscreen Preview.
+"""DeRo Cinematic Visualizer v0.1.18 — Elements Studio.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -25,7 +25,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.17 - Fullscreen Preview')
+        self.root.title('DeRo Cinematic Visualizer v0.1.18 - Elements Studio')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -69,7 +69,9 @@ class Application:
         self.build()
         self.saved_project_state=self.project_state()
         self.root.protocol('WM_DELETE_WINDOW',self.close_project)
-        for key in ('title','title_size','title_x','title_y','title_font','title_bold','title_italic',
+        for key in ('particles_enabled','particle_direction','particle_reactive','particle_color','spectrum_color',
+                    'overlay_enabled','overlay_path','overlay_size','overlay_x','overlay_y','overlay_opacity','overlay_shape',
+                    'dust','reactive','sensitivity','title','title_size','title_x','title_y','title_font','title_bold','title_italic',
                     'title_uppercase','title_color','artist','artist_size','artist_x','artist_y','artist_font',
                     'artist_bold','artist_italic','artist_uppercase','artist_color','particle_speed','spectrum_gain','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
             self.project_vars[key].trace_add('write',self.schedule_layout_preview)
@@ -126,6 +128,22 @@ class Application:
         style.map('TCheckbutton',background=[('active','#192538')])
         style.configure('Success.TLabel',background='#101827',foreground='#80e0bc',font=(self.ui_font,10,'bold'))
         style.configure('TSeparator',background='#263247')
+        self.switch_images=[]
+        for enabled in (False,True):
+            icon=Image.new('RGBA',(38,22))
+            from PIL import ImageDraw
+            drawing=ImageDraw.Draw(icon)
+            drawing.rounded_rectangle((1,2,37,20),radius=9,fill='#527cb4' if enabled else '#3b475b')
+            x=26 if enabled else 12
+            drawing.ellipse((x-8,3,x+8,19),fill='#dceaff' if enabled else '#a4afc0')
+            self.switch_images.append(ImageTk.PhotoImage(icon))
+        style.element_create('StudioToggle.indicator','image',self.switch_images[0],
+                             ('selected',self.switch_images[1]),sticky='')
+        style.layout('Switch.TCheckbutton',[('Checkbutton.padding',{'sticky':'nswe','children':[
+            ('StudioToggle.indicator',{'side':'right','sticky':''}),
+            ('Checkbutton.label',{'side':'left','sticky':'w'})]})])
+        style.configure('Switch.TCheckbutton',background='#101827',foreground='#e5ebf5',padding=(0,5))
+
 
     def build(self):
         self.configure_theme()
@@ -148,7 +166,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='FULLSCREEN PREVIEW  /  v0.1.17',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='ELEMENTS STUDIO  /  v0.1.18',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -166,14 +184,16 @@ class Application:
                             sashwidth=5,sashpad=0,showhandle=False,
                             sashcursor='sb_h_double_arrow',opaqueresize=True)
         body.pack(fill='both',expand=True)
-        sidebar=ttk.Frame(body,padding=18,width=290)
-        body.add(sidebar,minsize=280,width=320,stretch='never')
-        sidebar.columnconfigure(0,weight=1)
+        sidebar=ttk.Frame(body,padding=(8,14),width=420)
+        body.add(sidebar,minsize=360,width=420,stretch='never')
+        rail=ttk.Frame(sidebar,style='Shell.TFrame',padding=(0,0,8,0))
+        rail.grid(row=0,column=0,sticky='ns')
+        sidebar.columnconfigure(1,weight=1)
         # Scroll the inspector on smaller screens and with large system fonts.
         inspector=tk.Canvas(sidebar,background='#101827',highlightthickness=0,width=254)
         scroll=ttk.Scrollbar(sidebar,orient='vertical',command=inspector.yview,style='Studio.Vertical.TScrollbar')
         inspector.configure(yscrollcommand=scroll.set)
-        inspector.grid(row=0,column=0,sticky='nsew');scroll.grid(row=0,column=1,sticky='ns')
+        inspector.grid(row=0,column=1,sticky='nsew');scroll.grid(row=0,column=2,sticky='ns')
         sidebar.rowconfigure(0,weight=1)
         controls=ttk.Frame(inspector)
         window=inspector.create_window((0,0),window=controls,anchor='nw')
@@ -188,21 +208,32 @@ class Application:
         self.root.bind('<Button-4>',wheel,add='+')
         self.root.bind('<Button-5>',wheel,add='+')
 
+        content_root=controls
+        self.inspector_pages={}
+        self.navigation_buttons={}
         def section(text):
-            ttk.Label(controls,text=text,style='Section.TLabel').pack(anchor='w',pady=(16,10))
+            nonlocal controls
+            name={'01  /  SOURCE':'Audio','BACKDROP':'Backdrop','02  /  TITLE & LAYOUT':'Text',
+                  '03  /  SPECTRUM':'Visualizer','04  /  ATMOSPHERE':'Elements','05  /  OUTPUT':'Output'}[text]
+            controls=ttk.Frame(content_root,padding=(10,4,10,14))
+            self.inspector_pages[name]=controls
+            ttk.Label(controls,text=name,style='Heading.TLabel').pack(anchor='w',pady=(5,14))
+            button=ttk.Button(rail,text=name,width=9,padding=(6,18),command=lambda n=name:self.show_inspector(n))
+            button.pack(fill='x',pady=(0,8))
+            self.navigation_buttons[name]=button
         def field(label,var,values=None):
             ttk.Label(controls,text=label,style='Muted.TLabel').pack(anchor='w',pady=(7,5))
             widget=(ttk.Combobox(controls,textvariable=var,values=values,state='readonly')
                     if values else ttk.Entry(controls,textvariable=var))
             widget.pack(fill='x')
             return widget
-        ttk.Label(controls,text='Your composition',style='Heading.TLabel').pack(anchor='w')
-        ttk.Label(controls,text='Build a scene around your music.',style='Muted.TLabel').pack(anchor='w',pady=(5,0))
         section('01  /  SOURCE')
         field('Music file',self.audio)
         ttk.Button(controls,text='Choose music...',style='Music.TButton',command=self.browse_audio).pack(fill='x',pady=(6,2))
+        section('BACKDROP')
         field('Background image / optional',self.background)
         ttk.Button(controls,text='Choose background...',style='Image.TButton',command=self.browse_background).pack(fill='x',pady=(6,2))
+        ttk.Button(controls,text='Use default backdrop',command=lambda:self.reset_background()).pack(fill='x',pady=6)
         section('02  /  TITLE & LAYOUT')
         field('Song name / first row',self.title)
         field('Typeface',self.title_font,('Sans','Serif','Mono'))
@@ -212,7 +243,7 @@ class Application:
         ttk.Button(controls,text='Title color...',command=self.choose_title_color).pack(fill='x')
         def numeric(label,var,low,high,step=1):
             row=ttk.Frame(controls);row.pack(fill='x',pady=(9,0))
-            ttk.Label(row,text=label,style='Muted.TLabel').pack(side='left')
+            ttk.Label(row,text=label,style='Muted.TLabel',wraplength=145).pack(side='left')
             ttk.Spinbox(row,textvariable=var,from_=low,to=high,increment=step,width=6).pack(side='right')
         def arrows(target):
             pad=ttk.Frame(controls);pad.pack(fill='x',pady=(7,0))
@@ -236,6 +267,8 @@ class Application:
         arrows('artist')
         ttk.Button(controls,text='Reset artist layout',command=lambda:self.reset_layout('artist')).pack(fill='x',pady=(7,0))
         section('03  /  SPECTRUM')
+        field('Spectrum bands',self.bands,(32,64,96,128,192,256,384,512))
+        ttk.Button(controls,text='Spectrum color...',command=lambda:self.choose_element_color('spectrum_color')).pack(fill='x',pady=8)
         numeric('Spectrum sensitivity (x)',self.spectrum_gain,.1,3,.1)
         ttk.Label(controls,text='Lower = shorter bars',style='Muted.TLabel').pack(anchor='w',pady=(5,0))
         gain_buttons=ttk.Frame(controls);gain_buttons.pack(fill='x',pady=(7,0))
@@ -251,19 +284,37 @@ class Application:
         arrows('spectrum')
         ttk.Button(controls,text='Reset spectrum layout',command=lambda:self.reset_layout('spectrum')).pack(fill='x',pady=(7,0))
         section('04  /  ATMOSPHERE')
+        ttk.Label(controls,text='PARTICLES',style='Section.TLabel').pack(anchor='w',pady=(0,8))
+        ttk.Checkbutton(controls,text='Show particles',style='Switch.TCheckbutton',variable=self.particles_enabled).pack(anchor='w')
+        field('Direction',self.particle_direction,('Out','Left','Right','Up','Down'))
+        ttk.Checkbutton(controls,text='React to music',style='Switch.TCheckbutton',variable=self.particle_reactive).pack(anchor='w',pady=8)
+        ttk.Button(controls,text='Particle color...',command=lambda:self.choose_element_color('particle_color')).pack(fill='x')
         numeric('Particle speed (x)',self.particle_speed,.1,5,.1)
         for label,var,low,high,step in (('Dust particles',self.dust,0,800,1),
                 ('Reactive particles (%)',self.reactive,0,100,1),('Particle response (x)',self.sensitivity,.1,3,.1)):
             row=ttk.Frame(controls);row.pack(fill='x',pady=(12,0))
-            ttk.Label(row,text=label,style='Muted.TLabel').pack(side='left')
+            ttk.Label(row,text=label,style='Muted.TLabel',wraplength=145).pack(side='left')
             ttk.Spinbox(row,from_=low,to=high,increment=step,textvariable=var,width=6).pack(side='right')
-        field('Spectrum bands',self.bands,(32,64,96,128,192,256,384,512))
+        ttk.Separator(controls).pack(fill='x',pady=18)
+        ttk.Label(controls,text='IMAGE / LOGO',style='Section.TLabel').pack(anchor='w',pady=(0,8))
+        ttk.Button(controls,text='+ Add image...',style='Image.TButton',command=self.browse_overlay).pack(fill='x')
+        ttk.Checkbutton(controls,text='Show image',style='Switch.TCheckbutton',variable=self.overlay_enabled).pack(anchor='w',pady=8)
+        field('Image file',self.overlay_path)
+        field('Shape',self.overlay_shape,('Original','Circle'))
+        numeric('Image width (%)',self.overlay_size,1,100)
+        numeric('Opacity (%)',self.overlay_opacity,0,100)
+        numeric('Image X (%)',self.overlay_x,0,100)
+        numeric('Image Y (%)',self.overlay_y,0,100)
+        arrows('overlay')
+        ttk.Button(controls,text='Remove image',command=self.remove_overlay).pack(fill='x',pady=(10,0))
         section('05  /  OUTPUT')
         field('Resolution',self.res,('1920 x 1080','1280 x 720','854 x 480'))
         field('Frames per second',self.fps,(60,30))
-        ttk.Checkbutton(controls,text='Export completion tone',variable=self.completion_sound).pack(anchor='w',pady=(10,0))
+        ttk.Checkbutton(controls,text='Export completion tone',style='Switch.TCheckbutton',variable=self.completion_sound).pack(anchor='w',pady=(10,0))
         ttk.Button(controls,text='Quick test / 480p / 30 FPS',command=self.quick_test_preset).pack(fill='x',pady=(10,0))
 
+        self.inspector_canvas=inspector
+        self.show_inspector('Audio')
         workspace=ttk.Frame(body,style='Shell.TFrame');body.add(workspace,minsize=620,stretch='always')
         workspace.columnconfigure(0,weight=1);workspace.rowconfigure(0,weight=1)
         preview=ttk.Frame(workspace,padding=16);preview.grid(row=0,column=0,sticky='nsew')
@@ -286,7 +337,7 @@ class Application:
         self.scrub.pack(side='left',fill='x',expand=True,padx=12)
         self.scrub.bind('<Button-1>',self.timeline_click)
         self.scrub.bind('<B1-Motion>',self.timeline_click)
-        ttk.Checkbutton(transport,text='Sound on',variable=self.sound_enabled,command=self.toggle_sound).pack(side='right')
+        ttk.Checkbutton(transport,text='Sound on',style='Switch.TCheckbutton',variable=self.sound_enabled,command=self.toggle_sound).pack(side='right')
 
         selection=ttk.Frame(workspace,padding=(16,12));selection.grid(row=1,column=0,sticky='ew',pady=(12,0))
         heading=ttk.Frame(selection);heading.pack(fill='x')
@@ -315,6 +366,41 @@ class Application:
             buttons.columnconfigure(i%3,weight=1)
             ttk.Button(buttons,text=label,command=cmd).grid(row=i//3,column=i%3,sticky='ew',padx=(0,6),pady=3)
 
+    def show_inspector(self,name):
+        for key,page in self.inspector_pages.items():
+            page.pack_forget()
+            self.navigation_buttons[key].configure(style='Accent.TButton' if key==name else 'TButton')
+        self.inspector_pages[name].pack(fill='both',expand=True)
+        self.inspector_canvas.yview_moveto(0)
+        self.inspector_canvas.after_idle(lambda:self.inspector_canvas.configure(scrollregion=self.inspector_canvas.bbox('all')))
+
+    def reset_background(self):
+        self.background.set('')
+        if self.renderer is not None:
+            self.renderer.s.background=''
+            self.renderer.base=self.renderer._background()
+            self.display_frame()
+
+    def choose_element_color(self,key):
+        var=self.project_vars[key]
+        color=colorchooser.askcolor(color=var.get(),parent=self.root,title='Element color')[1]
+        if color:var.set(color)
+
+    def browse_overlay(self):
+        path=filedialog.askopenfilename(filetypes=[('Images','*.png *.jpg *.jpeg *.webp *.bmp')])
+        if not path:return
+        try:
+            with Image.open(path) as image:image.verify()
+        except (OSError,ValueError) as exc:
+            messagebox.showerror('Could not load image',str(exc));return
+        self.overlay_path.set(path)
+        self.overlay_enabled.set(True)
+        self.show_inspector('Elements')
+
+    def remove_overlay(self):
+        self.overlay_enabled.set(False)
+        self.overlay_path.set('')
+
     def schedule_layout_preview(self,*args):
         if self.layout_job is not None:self.root.after_cancel(self.layout_job)
         self.layout_job=self.root.after(100,self.apply_layout_preview)
@@ -325,15 +411,20 @@ class Application:
         try:
             values=validate_settings({key:var.get() for key,var in self.project_vars.items()})
             for key in ('title','title_font','title_bold','title_italic','title_uppercase','title_color',
-                        'artist','artist_font','artist_bold','artist_italic','artist_uppercase','artist_color','spectrum_gain'):
+                        'artist','artist_font','artist_bold','artist_italic','artist_uppercase','artist_color','spectrum_gain','particles_enabled','particle_color','spectrum_color',
+                        'overlay_enabled','overlay_path','overlay_shape'):
                 setattr(self.renderer.s,key,values[key])
-            for key in ('title_size','title_x','title_y','artist_size','artist_x','artist_y','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
+            for key in ('title_size','title_x','title_y','artist_size','artist_x','artist_y','spectrum_width','spectrum_x','spectrum_y','spectrum_height','overlay_size','overlay_x','overlay_y','overlay_opacity'):
                 setattr(self.renderer.s,key,values[key]/100)
-            if self.renderer.s.particle_speed!=values['particle_speed']:
-                self.renderer.s.particle_speed=values['particle_speed']
-                self.renderer.trajectories=self.renderer._particle_trajectories()
+            particle_values={'particle_speed':values['particle_speed'],'particle_direction':values['particle_direction'],
+                'particle_reactive':values['particle_reactive'],'dust_count':values['dust'],
+                'reactive_fraction':values['reactive']/100,'sensitivity':values['sensitivity']}
+            changed=any(getattr(self.renderer.s,key)!=value for key,value in particle_values.items())
+            if changed:
+                for key,value in particle_values.items():setattr(self.renderer.s,key,value)
+                self.renderer=Renderer(self.renderer.s,self.features)
             self.display_frame()
-        except (ValueError,tk.TclError):pass
+        except (ValueError,OSError,tk.TclError) as exc:self.status.set(str(exc))
 
     def nudge(self,target,dx,dy):
         try:
@@ -377,7 +468,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.17 - Fullscreen Preview')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.18 - Elements Studio')
 
     def clear_media(self):
         self.pause()
@@ -438,7 +529,7 @@ class Application:
         self.pending_selection=selection
         self.saved_project_state=self.project_state()
         self.update_project_title()
-        missing=[key for key in ('audio','background') if values[key] and not os.path.isfile(values[key])]
+        missing=[key for key in ('audio','background','overlay_path') if values[key] and (key!='overlay_path' or values['overlay_enabled']) and not os.path.isfile(values[key])]
         if missing:
             self.status.set('Project opened. Missing media: '+', '.join(missing)+'. Choose replacement files in the sidebar.')
             return
@@ -476,7 +567,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Fullscreen Preview')
+        window.title('DeRo / Elements Studio')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -583,6 +674,11 @@ class Application:
             title_x=self.title_x.get()/100,title_y=self.title_y.get()/100,title_font=self.title_font.get(),
             title_bold=self.title_bold.get(),title_italic=self.title_italic.get(),
             title_uppercase=self.title_uppercase.get(),title_color=self.title_color.get(),
+            overlay_enabled=self.overlay_enabled.get(),overlay_path=self.overlay_path.get(),
+            overlay_size=self.overlay_size.get()/100,overlay_x=self.overlay_x.get()/100,
+            overlay_y=self.overlay_y.get()/100,overlay_opacity=self.overlay_opacity.get()/100,overlay_shape=self.overlay_shape.get(),
+            particles_enabled=self.particles_enabled.get(),particle_direction=self.particle_direction.get(),
+            particle_reactive=self.particle_reactive.get(),particle_color=self.particle_color.get(),spectrum_color=self.spectrum_color.get(),
             spectrum_gain=self.spectrum_gain.get(),particle_speed=self.particle_speed.get(),artist=self.artist.get(),artist_size=self.artist_size.get()/100,
             artist_x=self.artist_x.get()/100,artist_y=self.artist_y.get()/100,
             artist_font=self.artist_font.get(),artist_bold=self.artist_bold.get(),

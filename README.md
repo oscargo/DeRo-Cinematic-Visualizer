@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.17 — Fullscreen Preview
+# DeRo Cinematic Visualizer v0.1.18 — Elements Studio
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.18`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.19`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_17_Fullscreen_Preview.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_18_Elements_Studio.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_17_Fullscreen_Preview**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_18_Elements_Studio**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -220,3 +220,29 @@ Press **Space** to play/pause and **Escape**, **F11**, or **Exit fullscreen** to
 The main workspace and composition settings stay intact.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_17_Fullscreen_Preview.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_17_Fullscreen_Preview.zip)
+
+## v0.1.18 — Elements Studio
+The inspector is now organized into six navigation panels instead of one long list:
+**Audio**, **Backdrop**, **Text**, **Visualizer**, **Elements**, and **Output**.
+The active panel is highlighted and its controls scroll independently. The slim
+panel divider, large preview, sound switch, fullscreen, project controls, and
+export toolbar are retained. The main on/off controls use graphical switches.
+
+- Audio: choose music and auto-fill song/artist metadata.
+- Backdrop: choose an image or return to the default gradient.
+- Text: adjust the song and artist rows independently.
+- Visualizer: adjust bands, spectrum color, sensitivity, width, height, and position.
+- Elements: show/hide particles, choose Out/Left/Right/Up/Down, toggle music reaction,
+  and adjust speed, count, reactive percentage, response, and color.
+- Output: configure resolution, FPS, quick test exports, and completion tone.
+
+**Elements → Add image** adds one image/logo layer. Transparent PNGs are supported.
+Adjust width, opacity, X/Y position, or use the position arrows. Original shape
+preserves the image; Circle crops the image to a centered square and applies a
+circular transparency mask. Show image toggles visibility; Remove image clears it.
+The layer sits above the backdrop/particles and below the spectrum/text. Changes
+appear live after music has been analyzed and are included in PNG/MP4 exports.
+New element settings and relative image paths are saved in `.dero` projects.
+Older projects keep their existing values, with new optional controls at defaults.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_18_Elements_Studio.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_18_Elements_Studio.zip)

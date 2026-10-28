@@ -5,6 +5,10 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
+    'particles_enabled':True,'particle_direction':'Out','particle_reactive':True,
+    'particle_color':'#ebeef7','spectrum_color':'#f0f6ff',
+    'overlay_enabled':False,'overlay_path':'','overlay_size':20.0,'overlay_x':50.0,
+    'overlay_y':50.0,'overlay_opacity':100.0,'overlay_shape':'Original',
     'completion_sound':True, 'preview_sound':True, 'audio':'', 'background':'', 'title':'', 'dust':130, 'reactive':25,
     'sensitivity':1.0, 'fps':60, 'bands':384, 'res':'1920 x 1080',
     'title_size':2.0, 'title_x':50.0, 'title_y':79.0, 'title_font':'Sans',
@@ -17,11 +21,11 @@ for key in ('size','x','y','font','bold','italic','uppercase','color'):
     DEFAULTS['artist_'+key]=DEFAULTS['title_'+key]
 DEFAULTS.update(artist='',artist_size=1.5,artist_y=82.5)
 
-RANGES = {'spectrum_gain':(.1,3),'particle_speed':(.1,5),'dust':(0,800),'reactive':(0,100),'sensitivity':(.1,3),
+RANGES = {'overlay_size':(1,100),'overlay_x':(0,100),'overlay_y':(0,100),'overlay_opacity':(0,100),'spectrum_gain':(.1,3),'particle_speed':(.1,5),'dust':(0,800),'reactive':(0,100),'sensitivity':(.1,3),
           'title_size':(.5,12),'title_x':(0,100),'title_y':(0,100),
           'spectrum_width':(10,100),'spectrum_x':(0,100),'spectrum_y':(0,100),
           'spectrum_height':(1,30)}
-CHOICES = {'fps':(30,60),'bands':(32,64,96,128,192,256,384,512),
+CHOICES = {'particle_direction':('Out','Left','Right','Up','Down'),'overlay_shape':('Original','Circle'),'fps':(30,60),'bands':(32,64,96,128,192,256,384,512),
            'res':('1920 x 1080','1280 x 720','854 x 480'), 'title_font':('Sans','Serif','Mono')}
 
 for key in ('size','x','y'):
@@ -44,7 +48,7 @@ def validate_settings(values):
             raise ValueError(f'Project setting out of range: {key}')
         if key in CHOICES and value not in CHOICES[key]:raise ValueError(f'Unsupported {key}')
         result[key]=value
-    for name in ('title_color','artist_color'):
+    for name in ('title_color','artist_color','particle_color','spectrum_color'):
         color=result[name]
         if len(color)!=7 or color[0]!='#' or any(c not in '0123456789abcdefABCDEF' for c in color[1:]):
             raise ValueError('Text color must be a hex color (#RRGGBB).')
@@ -55,7 +59,7 @@ def save_project(path,settings,start=0,end=None):
     path=Path(path).resolve()
     values=validate_settings(settings)
     selection=validate_selection([start,end])
-    for key in ('audio','background'):
+    for key in ('audio','background','overlay_path'):
         if values[key]:
             try:values[key]=os.path.relpath(os.path.abspath(values[key]),path.parent)
             except ValueError:values[key]=os.path.abspath(values[key])
@@ -84,6 +88,6 @@ def load_project(path):
     if not isinstance(data,dict) or data.get('format')!='dero-visualizer-project' or data.get('version')!=1:
         raise ValueError('Not a supported DeRo project.')
     values=validate_settings(data.get('settings'))
-    for key in ('audio','background'):
+    for key in ('audio','background','overlay_path'):
         if values[key]:values[key]=str((path.parent/values[key]).resolve())
     return values,validate_selection(data.get('selection',[0,None]))

@@ -39,6 +39,18 @@ class Settings:
     artist_uppercase: bool = False
     artist_color: str = "#f8f9fd"
     spectrum_height: float = 0.068
+    particles_enabled: bool = True
+    particle_direction: str = 'Out'
+    particle_reactive: bool = True
+    particle_color: str = '#ebeef7'
+    spectrum_color: str = '#f0f6ff'
+    overlay_enabled: bool = False
+    overlay_path: str = ''
+    overlay_size: float = .2
+    overlay_x: float = .5
+    overlay_y: float = .5
+    overlay_opacity: float = 1.
+    overlay_shape: str = 'Original'
     particle_speed: float = 1.0
     dust_count: int = 130
     reactive_fraction: float = 0.25
@@ -92,6 +104,8 @@ def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int) -
 class Renderer:
     def __init__(self, settings: Settings, features: np.ndarray | None = None):
         self.s = settings
+        self.overlay_cache_key=None
+        self.overlay_cache=None
         self.features = features
         self.rng = np.random.default_rng(settings.seed)
         self.particles = self._make_particles()
@@ -124,6 +138,8 @@ class Renderer:
             angle = math.atan2(y - .5, (x - .5) * 1.35) + r.normal(0, .65)
             if r.random() < .18:
                 angle = r.uniform(-math.pi, math.pi)
+            if self.s.particle_direction!='Out':
+                angle={'Right':0,'Left':math.pi,'Up':-math.pi/2,'Down':math.pi/2}[self.s.particle_direction]+r.normal(0,.12)
             speed = r.uniform(.0004, .0020)
             result.append(dict(x=float(x), y=float(y), vx=float(math.cos(angle)*speed),
                 vy=float(math.sin(angle)*speed),
@@ -165,11 +181,13 @@ class Renderer:
             previous = bass
             # Most activity is quiet; big transients get noticeably more push.
             strength = min(1.0, max(0., onset - .035)*1.55 + max(0., bass-smooth-.08)*.55)
-            if strength > 0 and reactive.any():
+            if self.s.particle_reactive and strength > 0 and reactive.any():
                 # Outward velocity, with independent minor asymmetry per fleck.
                 direction = pos - np.array([.5, .5])
                 direction[:, 0] *= 1.25
                 angles = np.arctan2(direction[:,1], direction[:,0]) + r.normal(0,.20,count)
+                if self.s.particle_direction!='Out':
+                    angles=np.full(count,{'Right':0,'Left':math.pi,'Up':-math.pi/2,'Down':math.pi/2}[self.s.particle_direction])+r.normal(0,.12,count)
                 impulse = (strength ** 1.4) * .00058 * self.s.sensitivity * gains
                 vel[reactive, 0] += np.cos(angles[reactive])*impulse[reactive]
                 vel[reactive, 1] += np.sin(angles[reactive])*impulse[reactive]
@@ -206,16 +224,16 @@ class Renderer:
         scale = h/1080
         frame_index = min(len(self.trajectories)-1, max(0, round(seconds*s.fps)))
         positions = self.trajectories[frame_index]
-        for p, position in zip(self.particles, positions):
+        for p, position in zip(self.particles if s.particles_enabled else [], positions):
             x, y = float(position[0])*w, float(position[1])*h
             # Exiting flecks are gone permanently; never wrap or bounce.
             if x < -12 or y < -12 or x > w+12 or y > h+12:
                 continue
-            react = p['reactive']
+            react = p['reactive'] and s.particle_reactive
             size = p['size']*scale*(1 + (.45*bass*s.sensitivity if react else 0))
             opacity = p['alpha']*(1 + (.5*mid + .3*treble)*s.sensitivity if react else 1)
             a = max(0,min(210, int(opacity*255)))
-            col = (235,238,247,a)
+            col = tuple(bytes.fromhex(s.particle_color.lstrip('#')))+(a,)
             if p['kind']==0:  # irregular tiny dust
                 d.polygon([(x-size,y),(x+size*.4,y-size*.65),(x+size,y+size*.3),(x-size*.3,y+size)], fill=col)
             elif p['kind']==1:  # slim airborne flake
@@ -227,6 +245,7 @@ class Renderer:
         if s.dust_count:
             # Small blur creates natural diffusion without erasing all sharp dust flecks.
             img = Image.alpha_composite(img, dust)
+        self.compose_image_element(img)
         overlay=Image.new('RGBA',(w,h))
         g=ImageDraw.Draw(overlay,'RGBA')
         center=round(w*s.spectrum_x)
@@ -244,8 +263,8 @@ class Renderer:
             barw=max(1, round(bw*.58))
             for sign in (-1,1):
                 xx=round(center+sign*xoff)
-                g.rounded_rectangle((xx-barw//2, round(baseline-height), xx+barw//2, baseline), radius=barw//2,fill=(240,246,255,220))
-        g.line((center-sw/2,baseline+2,center+sw/2,baseline+2),fill=(240,245,255,115),width=max(1,round(h/1080)))
+                g.rounded_rectangle((xx-barw//2, round(baseline-height), xx+barw//2, baseline), radius=barw//2,fill=tuple(bytes.fromhex(s.spectrum_color.lstrip('#')))+(220,))
+        g.line((center-sw/2,baseline+2,center+sw/2,baseline+2),fill=tuple(bytes.fromhex(s.spectrum_color.lstrip('#')))+(115,),width=max(1,round(h/1080)))
         for row in ('title','artist'):
             text=getattr(s,row)
             if not text:continue
@@ -268,3 +287,26 @@ class Renderer:
             try:return ImageFont.truetype(candidate,size)
             except OSError:pass
         return ImageFont.load_default(size=size)
+
+    def compose_image_element(self,frame):
+        s=self.s
+        if not s.overlay_enabled or not s.overlay_path:return
+        key=(s.overlay_path,s.overlay_size,s.overlay_opacity,s.overlay_shape,s.width,s.height)
+        if key!=self.overlay_cache_key:
+            with Image.open(s.overlay_path) as source:image=source.convert('RGBA')
+            if s.overlay_shape=='Circle':
+                side=min(image.size);left=(image.width-side)//2;top=(image.height-side)//2
+                image=image.crop((left,top,left+side,top+side))
+            width=max(1,round(s.width*s.overlay_size))
+            height=max(1,round(image.height*width/image.width))
+            image=image.resize((width,height),Image.Resampling.LANCZOS)
+            alpha=image.getchannel('A')
+            if s.overlay_shape=='Circle':
+                mask=Image.new('L',image.size)
+                ImageDraw.Draw(mask).ellipse((0,0,width-1,height-1),fill=255)
+                from PIL import ImageChops
+                alpha=ImageChops.multiply(alpha,mask)
+            image.putalpha(alpha.point(lambda value:round(value*s.overlay_opacity)))
+            self.overlay_cache=image;self.overlay_cache_key=key
+        image=self.overlay_cache
+        frame.alpha_composite(image,(round(s.width*s.overlay_x-image.width/2),round(s.height*s.overlay_y-image.height/2)))

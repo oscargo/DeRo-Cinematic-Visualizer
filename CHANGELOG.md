@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.18 — Elements Studio
+
+- Organized settings into Audio, Backdrop, Text, Visualizer, Elements, and Output panels.
+- Added highlighted navigation and graphical on/off switches.
+- Added live particle direction, visibility, beat-reaction, and color controls.
+- Added spectrum color and a default-backdrop action.
+- Added an image/logo layer with circular crop, opacity, size, position, and visibility.
+- Save new element settings and image references with backward-compatible projects.
+
 ## v0.1.17 — Fullscreen Preview
 
 - Added a Fullscreen preview button and F11 shortcut.
