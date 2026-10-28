@@ -24,6 +24,22 @@ class SpectrumStylesTests(unittest.TestCase):
                                 spectrum_y=.65,spectrum_height=.2,spectrum_density=.5),features).render(0)
         self.assertIsNotNone(ImageChops.difference(base,sparse).getbbox())
 
+    def test_narrow_bass_bands_are_not_copied_from_one_fft_bin(self):
+        sr=22050;t=np.arange(sr)/sr
+        features=audio_features(np.sin(2*np.pi*73*t),sr,10,384)[5]
+        # These early narrow bands used to round to the same FFT bin.
+        self.assertGreater(len(np.unique(np.round(features[:6],5))),4)
+        self.assertTrue(np.isfinite(features).all())
+
+    def test_high_density_interpolates_instead_of_duplicating_bars(self):
+        renderer=Renderer(Settings(width=1920,height=1080,bars=16,dust_count=0,title='',
+            spectrum_mirrored=False,spectrum_density=2,spectrum_height=.3))
+        layer=np.asarray(renderer.spectrum_layer(np.linspace(.1,.9,16)))
+        count=32;span=1920*.82;step=span/(count+2)
+        xs=np.round(960+(np.arange(count)-(count-1)/2)*step).astype(int)
+        tops=[int(np.flatnonzero(layer[:,x,3])[0]) for x in xs]
+        self.assertGreater(len(set(tops)),24)
+
     def test_high_frequency_analysis_and_invalid_ranges(self):
         sr=44100;t=np.arange(sr)/sr
         features=audio_features(np.sin(2*np.pi*16000*t),sr,10,128,14000,18000,'Linear')

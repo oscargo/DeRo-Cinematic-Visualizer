@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.22 — Smooth Spectrum Mapping
+
+- Replace integer FFT-bin rounding with fractional frequency-band power integration.
+- Replace nearest-value repetition with interpolation when mapping visible bars.
+- Remove artificial stepped plateaus without random variation or added audio detail.
+- Add bass-bin and high-density regression tests and a same-signal comparison image.
+
 ## v0.1.21 — Spectrum Styles
 
 - Added Classic, Gradient, Glow, Reflected, and Filled spectrum styles and mirroring toggle.

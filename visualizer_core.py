@@ -85,8 +85,12 @@ def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, f
     freqs = np.fft.rfftfreq(nfft, 1 / sample_rate)
     spacing=np.geomspace if frequency_scale=='Logarithmic' else np.linspace
     edges = spacing(float(frequency_min),upper,bars+1)
-    idx = np.searchsorted(freqs, edges)
-    idx = np.clip(idx, 1, len(freqs) - 1)
+    # Integrate a linearly interpolated power spectrum at fractional FFT
+    # coordinates. Integer edge rounding copied one FFT bin into adjacent bands.
+    coordinates=edges/(sample_rate/nfft)
+    lower=np.clip(np.floor(coordinates).astype(int),0,len(freqs)-2)
+    fractions=coordinates-lower
+    widths=np.diff(coordinates)
     energies = np.zeros((nframes, bars), np.float32)
     window = np.hanning(nfft).astype(np.float32)
     for i in range(nframes):
@@ -98,12 +102,10 @@ def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, f
         if right > left:
             frame[left - a:right - a] = samples[left:right]
         magnitude = np.abs(np.fft.rfft(frame * window))
-        # Vectorized band RMS keeps 384/512-band analysis practical.
         power = magnitude * magnitude
-        cs = np.concatenate(([0.], np.cumsum(power, dtype=np.float64)))
-        lo = idx[:-1]
-        hi = np.maximum(idx[1:], lo + 1)
-        values = (cs[hi] - cs[lo]) / np.maximum(hi-lo, 1)
+        cs=np.concatenate(([0.],np.cumsum((power[:-1]+power[1:])*.5,dtype=np.float64)))
+        integral=cs[lower]+power[lower]*fractions+.5*(power[lower+1]-power[lower])*fractions**2
+        values=np.diff(integral)/widths
         energies[i, :] = np.sqrt(np.maximum(values, 0))
     # Static relative scaling preserves quiet/loud dynamics; avoid per-frame normalization.
     # Use the actual song-wide maximum, not a percentile followed by clipping.
@@ -320,12 +322,11 @@ class Renderer:
         if s.spectrum_mirrored:
             count=max(8,count//2*2)
             half=count//2
-            indices=np.linspace(0,len(energy)-1,half).astype(int)
-            amplitudes=np.concatenate((energy[indices][::-1],energy[indices]))
+            values=np.interp(np.linspace(0,len(energy)-1,half),np.arange(len(energy)),energy)
+            amplitudes=np.concatenate((values[::-1],values))
             color_positions=np.concatenate((np.linspace(1,0,half),np.linspace(0,1,half)))
         else:
-            indices=np.linspace(0,len(energy)-1,count).astype(int)
-            amplitudes=energy[indices]
+            amplitudes=np.interp(np.linspace(0,len(energy)-1,count),np.arange(len(energy)),energy)
             color_positions=np.linspace(0,1,count)
         step=span/(count+2)
         xs=center+(np.arange(count)-(count-1)/2)*step

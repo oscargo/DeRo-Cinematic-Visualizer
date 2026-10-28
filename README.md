@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.21 — Spectrum Styles
+# DeRo Cinematic Visualizer v0.1.22 — Smooth Spectrum Mapping
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.22`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.23`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_21_Spectrum_Styles.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_22_Smooth_Spectrum_Mapping.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_21_Spectrum_Styles**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_22_Smooth_Spectrum_Mapping**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -306,3 +306,17 @@ select Displayed range so particles follow the chosen frequency emphasis.
 All new settings are saved in projects.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_21_Spectrum_Styles.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_21_Spectrum_Styles.zip)
+
+## v0.1.22 — Smooth Spectrum Mapping
+Fixed stepped groups of identical bars caused by rounding narrow frequency bands
+to the same FFT bin, then repeating nearest band values when drawing extra bars.
+Frequency analysis now integrates interpolated spectral power at fractional band
+edges; the renderer interpolates between band values when changing display density.
+This smooths the mapping without random height changes or added audio detail.
+Mirroring still intentionally repeats the spectrum on the opposite side, and
+neighboring bars may legitimately have similar heights. FFT resolution is unchanged.
+Click Refresh Preview after upgrading and export again to use the corrected analysis.
+
+![Same 73 Hz test tone before and after mapping correction](docs/spectrum_mapping_before_after.png)
+
+[Download DeRo_Cinematic_Visualizer_v0_1_22_Smooth_Spectrum_Mapping.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_22_Smooth_Spectrum_Mapping.zip)
