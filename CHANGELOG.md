@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.27 — Export Analysis Reuse
+
+- Reuse preview samples and features for export when source metadata and all analysis inputs match.
+- Capture a stable snapshot before the export worker starts and recheck source metadata in the worker.
+- Fall back to fresh decoding and analysis for missing/stale caches, mismatched settings, or custom FFmpeg commands.
+- Keep original audio muxing, selection timing, rendering, and encoding behavior unchanged.
+- Verify cached/fresh decoded video and audio equivalence with real FFmpeg exports.
+
 ## v0.1.26 — Preview Performance
 
 - Skip disabled particle initialization while preserving live re-enabling.

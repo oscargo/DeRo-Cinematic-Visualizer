@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.26 — Preview Performance
+# DeRo Cinematic Visualizer v0.1.27 — Export Analysis Reuse
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.27`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.28`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_26_Preview_Performance.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_27_Export_Analysis_Reuse.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_26_Preview_Performance**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_27_Export_Analysis_Reuse**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -397,3 +397,21 @@ Run `.venv/bin/python -m unittest discover -s tests -v` from the repository root
 See [performance measurements](docs/preview_performance.md) for scope and results.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_26_Preview_Performance.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_26_Preview_Performance.zip)
+
+
+## v0.1.27 — Export Analysis Reuse
+
+Export reuses the preview's samples and spectrum features when the source file's
+metadata, sample rate, FPS, bands, frequency range/scale, and peak mapping match.
+Resolution, text, colors, particle settings, and export range do not invalidate
+full-song audio analysis. A missing cache or any mismatch uses the existing fresh
+decode/analysis path. Custom FFmpeg commands also use that path. The source is
+checked again inside the export worker. No content hashing is performed.
+
+Standalone callers can optionally pass `cached_analysis=cache.snapshot()` from
+`PreviewCache`; calls without that argument keep their existing behavior.
+Snapshots hold array references rather than copying the song; callers must not
+mutate those arrays. Export still builds its renderer and encodes every output
+frame, and FFmpeg reads the source file to include the selected audio.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_27_Export_Analysis_Reuse.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_27_Export_Analysis_Reuse.zip)

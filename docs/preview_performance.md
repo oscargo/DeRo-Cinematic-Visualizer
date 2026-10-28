@@ -26,3 +26,18 @@ matched the original renderer. Regression tests cover disabled/live-enabled
 particles, font cache changes, source replacement at the same path and size,
 analysis-key changes, and queued rebuild cancellation. Existing export tests
 exercise real FFmpeg output and trimmed-audio alignment.
+
+
+## v0.1.27 export preparation
+
+A single-run 30-second mono 22,050 Hz PCM WAV benchmark at 30 FPS/384 bands
+measured fresh decoding plus feature analysis at 0.1792 s, and snapshot metadata/
+settings validation at 0.000162 s. These numbers exclude renderer construction,
+frame rendering, encoding, and original-audio muxing; they are not a total-export
+speedup claim. Cache reuse avoids the repeated decode and FFT work entirely.
+
+Real FFmpeg regression tests compare cached and fresh trimmed exports after
+decoding both video and audio; each stream is byte-identical. They also verify
+fresh decoding/analysis for changed settings and fresh decoding for a touched
+source. Snapshot-key tests cover source replacement, FPS, band count, frequency
+range/scale and peak mapping, plus resolution/title changes that remain reusable.
