@@ -40,6 +40,25 @@ class SpectrumStylesTests(unittest.TestCase):
         tops=[int(np.flatnonzero(layer[:,x,3])[0]) for x in xs]
         self.assertGreater(len(set(tops)),24)
 
+    def test_selectable_peak_shapes_and_project_persistence(self):
+        sr=22050;t=np.arange(sr)/sr;signal=np.sin(2*np.pi*73*t)
+        results={shape:audio_features(signal,sr,10,384,spectrum_mapping=shape)[5]
+                 for shape in ('Stepped','Balanced','Smooth')}
+        self.assertEqual(len(np.unique(np.round(results['Stepped'][:6],5))),1)
+        self.assertGreater(len(np.unique(np.round(results['Smooth'][:6],5))),4)
+        self.assertFalse(np.allclose(results['Balanced'],results['Stepped']))
+        self.assertFalse(np.allclose(results['Balanced'],results['Smooth']))
+        energy=np.array([.1,.9],np.float32)
+        r=Renderer(Settings(dust_count=0,spectrum_mapping='Stepped'))
+        stepped=r.map_spectrum_values(energy,8)
+        r.s.spectrum_mapping='Smooth';smooth=r.map_spectrum_values(energy,8)
+        r.s.spectrum_mapping='Balanced';balanced=r.map_spectrum_values(energy,8)
+        np.testing.assert_allclose(balanced,(stepped+smooth)/2)
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'shape.dero'
+            save_project(path,dict(DEFAULTS,spectrum_mapping='Balanced'))
+            self.assertEqual(load_project(path)[0]['spectrum_mapping'],'Balanced')
+
     def test_high_frequency_analysis_and_invalid_ranges(self):
         sr=44100;t=np.arange(sr)/sr
         features=audio_features(np.sin(2*np.pi*16000*t),sr,10,128,14000,18000,'Linear')

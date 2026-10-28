@@ -17,6 +17,7 @@ class Settings:
     fps: int = 60
     title: str = "LOVE NIGHT"
     bars: int = 384
+    spectrum_mapping: str = 'Smooth'
     spectrum_style: str = 'Classic bars'
     spectrum_mirrored: bool = True
     spectrum_density: float = 1.
@@ -68,7 +69,7 @@ class Settings:
     seed: int = 42
 
 
-def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, frequency_min=50., frequency_max=None, frequency_scale='Logarithmic') -> np.ndarray:
+def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, frequency_min=50., frequency_max=None, frequency_scale='Logarithmic', spectrum_mapping='Smooth') -> np.ndarray:
     """Frequency-band energies (frames, bars) from mono 16/32bit decoded audio.
 
     Log-spaced bands from 50 Hz to min(14000, sample_rate * .48),
@@ -91,6 +92,10 @@ def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, f
     lower=np.clip(np.floor(coordinates).astype(int),0,len(freqs)-2)
     fractions=coordinates-lower
     widths=np.diff(coordinates)
+    legacy_edges=np.clip(np.searchsorted(freqs,edges),1,len(freqs)-1)
+    legacy_lo=legacy_edges[:-1]
+    legacy_hi=np.maximum(legacy_edges[1:],legacy_lo+1)
+    if spectrum_mapping not in ('Stepped','Balanced','Smooth'):raise ValueError('Unknown spectrum peak shape.')
     energies = np.zeros((nframes, bars), np.float32)
     window = np.hanning(nfft).astype(np.float32)
     for i in range(nframes):
@@ -106,7 +111,12 @@ def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, f
         cs=np.concatenate(([0.],np.cumsum((power[:-1]+power[1:])*.5,dtype=np.float64)))
         integral=cs[lower]+power[lower]*fractions+.5*(power[lower+1]-power[lower])*fractions**2
         values=np.diff(integral)/widths
-        energies[i, :] = np.sqrt(np.maximum(values, 0))
+        smooth=np.sqrt(np.maximum(values,0))
+        if spectrum_mapping=='Smooth':energies[i,:]=smooth
+        else:
+            legacy_cs=np.concatenate(([0.],np.cumsum(power,dtype=np.float64)))
+            stepped=np.sqrt(np.maximum((legacy_cs[legacy_hi]-legacy_cs[legacy_lo])/np.maximum(legacy_hi-legacy_lo,1),0))
+            energies[i,:]=stepped if spectrum_mapping=='Stepped' else (stepped+smooth)*.5
     # Static relative scaling preserves quiet/loud dynamics; avoid per-frame normalization.
     # Use the actual song-wide maximum, not a percentile followed by clipping.
     # A percentile ceiling flattened the strongest bins into a visible shelf.
@@ -322,11 +332,11 @@ class Renderer:
         if s.spectrum_mirrored:
             count=max(8,count//2*2)
             half=count//2
-            values=np.interp(np.linspace(0,len(energy)-1,half),np.arange(len(energy)),energy)
+            values=self.map_spectrum_values(energy,half)
             amplitudes=np.concatenate((values[::-1],values))
             color_positions=np.concatenate((np.linspace(1,0,half),np.linspace(0,1,half)))
         else:
-            amplitudes=np.interp(np.linspace(0,len(energy)-1,count),np.arange(len(energy)),energy)
+            amplitudes=self.map_spectrum_values(energy,count)
             color_positions=np.linspace(0,1,count)
         step=span/(count+2)
         xs=center+(np.arange(count)-(count-1)/2)*step
@@ -371,3 +381,10 @@ class Renderer:
         selected=(centers>=low)&(centers<high)
         if not selected.any():return np.zeros(features.shape[:-1],np.float32)
         return np.mean(features[...,selected],axis=-1)
+
+    def map_spectrum_values(self,energy,count):
+        positions=np.linspace(0,len(energy)-1,count)
+        smooth=np.interp(positions,np.arange(len(energy)),energy)
+        if self.s.spectrum_mapping=='Smooth':return smooth
+        stepped=energy[positions.astype(int)]
+        return stepped if self.s.spectrum_mapping=='Stepped' else (stepped+smooth)*.5

@@ -15,7 +15,7 @@ def export(audio_path, output_path, settings: Settings, ffmpeg='ffmpeg', progres
         raise ValueError('Export range must satisfy 0 ≤ start < end ≤ audio duration.')
     clip_duration=end_seconds-start_seconds
     frame_count=max(1,math.ceil(round(clip_duration*settings.fps, 9)))
-    features=audio_features(samples,sample_rate,settings.fps,settings.bars,settings.frequency_min,settings.frequency_max,settings.frequency_scale)
+    features=audio_features(samples,sample_rate,settings.fps,settings.bars,settings.frequency_min,settings.frequency_max,settings.frequency_scale,settings.spectrum_mapping)
     renderer=Renderer(settings,features)
     cmd=[ffmpeg,'-hide_banner','-loglevel','error','-y','-f','rawvideo','-vcodec','rawvideo',
          '-pix_fmt','rgb24','-s',f'{settings.width}x{settings.height}','-r',str(settings.fps),'-i','pipe:0',

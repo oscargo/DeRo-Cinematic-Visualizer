@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.23 — Resets & Export Alerts
+# DeRo Cinematic Visualizer v0.1.24 — Peak Shape Options
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.24`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.25`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_23_Resets_and_Export_Alerts.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_24_Peak_Shape_Options.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_23_Resets_and_Export_Alerts**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_24_Peak_Shape_Options**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -347,3 +347,16 @@ chime. Windows playback calls and sound data were tested with a simulated backen
 physical speaker playback remains unverified in the cloud environment.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_23_Resets_and_Export_Alerts.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_23_Resets_and_Export_Alerts.zip)
+
+## v0.1.24 — Peak Shape Options
+In **Visualizer → Peak shape**, choose:
+- **Stepped:** the previous whole-bin and nearest-value mapping, including grouped peaks.
+- **Balanced:** a half-way blend of stepped and smooth analysis/display mappings.
+- **Smooth:** the current fractional frequency mapping and interpolated bars.
+
+This changes the spectrum peak profile, not the rounded corners of individual bars.
+Switching reanalyzes the music automatically. The choice is saved in projects and
+used by preview and export, with its own Reset button. Smooth remains the default
+for compatibility with current projects. No random height changes are added.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_24_Peak_Shape_Options.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_24_Peak_Shape_Options.zip)

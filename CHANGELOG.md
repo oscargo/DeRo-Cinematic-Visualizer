@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.24 — Peak Shape Options
+
+- Added Stepped (previous), Smooth (current), and Balanced peak shapes.
+- Apply the selected shape in frequency analysis and visible-bar mapping.
+- Reanalyze automatically and save the choice with each project.
+- Include an individual Reset button and retain Smooth as the default.
+
 ## v0.1.23 — Resets & Export Alerts
 
 - Added individual setting resets, panel resets, and confirmed all-settings reset.

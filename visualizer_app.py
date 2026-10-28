@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.23 — Resets & Export Alerts.
+"""DeRo Cinematic Visualizer v0.1.24 — Peak Shape Options.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -25,7 +25,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.23 - Resets & Export Alerts')
+        self.root.title('DeRo Cinematic Visualizer v0.1.24 - Peak Shape Options')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -73,7 +73,7 @@ class Application:
         self.install_reset_controls()
         self.saved_project_state=self.project_state()
         self.root.protocol('WM_DELETE_WINDOW',self.close_project)
-        for key in ('fps','bands','frequency_min','frequency_max','frequency_scale','spectrum_style','spectrum_mirrored',
+        for key in ('fps','bands','frequency_min','frequency_max','frequency_scale','spectrum_mapping','spectrum_style','spectrum_mirrored',
                     'spectrum_density','spectrum_fill','spectrum_color_end','particles_enabled','particle_reactivity','particle_direction','particle_reactive','particle_color','spectrum_color',
                     'overlay_enabled','overlay_path','overlay_size','overlay_x','overlay_y','overlay_opacity','overlay_shape',
                     'dust','reactive','sensitivity','title','title_size','title_x','title_y','title_font','title_bold','title_italic',
@@ -173,7 +173,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='RESETS & EXPORT ALERTS  /  v0.1.23',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='PEAK SHAPE OPTIONS  /  v0.1.24',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -277,6 +277,8 @@ class Application:
         arrows('artist')
         ttk.Button(controls,text='Reset artist layout',command=lambda:self.reset_layout('artist')).pack(fill='x',pady=(7,0))
         section('03  /  SPECTRUM')
+        field('Peak shape',self.spectrum_mapping,('Stepped','Balanced','Smooth'))
+        ttk.Label(controls,text='Stepped = previous look / Smooth = current look / Balanced = in between',style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=5)
         field('Appearance',self.spectrum_style,('Classic bars','Gradient bars','Glow bars','Reflected bars','Filled spectrum'))
         ttk.Checkbutton(controls,text='Mirror around center',style='Switch.TCheckbutton',variable=self.spectrum_mirrored).pack(fill='x',pady=6)
         numeric('Analysis bands',self.bands,16,2048,16)
@@ -567,7 +569,7 @@ class Application:
         try:
             values=validate_settings({key:var.get() for key,var in self.project_vars.items()})
             if any(getattr(self.renderer.s,target)!=values[source] for target,source in
-                   (('fps','fps'),('bars','bands'),('frequency_min','frequency_min'),('frequency_max','frequency_max'),('frequency_scale','frequency_scale'))):
+                   (('fps','fps'),('bars','bands'),('frequency_min','frequency_min'),('frequency_max','frequency_max'),('frequency_scale','frequency_scale'),('spectrum_mapping','spectrum_mapping'))):
                 if not self.busy:self.prepare_preview()
                 return
             for key in ('title','title_font','title_bold','title_italic','title_uppercase','title_color',
@@ -628,7 +630,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.23 - Resets & Export Alerts')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.24 - Peak Shape Options')
 
     def clear_media(self):
         self.pause()
@@ -732,7 +734,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Resets & Export Alerts')
+        window.title('DeRo / Peak Shape Options')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -844,7 +846,7 @@ class Application:
             overlay_y=self.overlay_y.get()/100,overlay_opacity=self.overlay_opacity.get()/100,overlay_shape=self.overlay_shape.get(),
             particles_enabled=self.particles_enabled.get(),particle_reactivity=self.particle_reactivity.get(),particle_direction=self.particle_direction.get(),
             particle_reactive=self.particle_reactive.get(),particle_color=self.particle_color.get(),spectrum_color=self.spectrum_color.get(),
-            spectrum_style=self.spectrum_style.get(),spectrum_mirrored=self.spectrum_mirrored.get(),
+            spectrum_mapping=self.spectrum_mapping.get(),spectrum_style=self.spectrum_style.get(),spectrum_mirrored=self.spectrum_mirrored.get(),
             spectrum_density=self.spectrum_density.get()/100,spectrum_fill=self.spectrum_fill.get()/100,
             spectrum_color_end=self.spectrum_color_end.get(),frequency_min=self.frequency_min.get(),
             frequency_max=self.frequency_max.get(),frequency_scale=self.frequency_scale.get(),
@@ -878,7 +880,7 @@ class Application:
                     if sr!=(44100 if settings.frequency_max>10584 else 22050):
                         samples,sr=load_audio(path,sample_rate=44100 if settings.frequency_max>10584 else 22050)
                     playback=self.preview_audio
-                features=audio_features(samples,sr,settings.fps,settings.bars,settings.frequency_min,settings.frequency_max,settings.frequency_scale)
+                features=audio_features(samples,sr,settings.fps,settings.bars,settings.frequency_min,settings.frequency_max,settings.frequency_scale,settings.spectrum_mapping)
                 renderer=Renderer(settings,features)
                 self.q.put(('ready',(samples,sr,features,renderer,path,playback)))
             except Exception as exc:self.q.put(('error',str(exc)))
