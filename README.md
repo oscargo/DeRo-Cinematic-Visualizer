@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.25 — Continuous Particles
+# DeRo Cinematic Visualizer v0.1.26 — Preview Performance
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.26`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.27`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_25_Continuous_Particles.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_26_Preview_Performance.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_25_Continuous_Particles**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_26_Preview_Performance**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -376,3 +376,24 @@ time, so seeking and exports remain consistent. Dust count is the active pool
 size; the number fully visible varies while particles enter and leave.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_25_Continuous_Particles.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_25_Continuous_Particles.zip)
+
+
+## v0.1.26 — Preview Performance
+
+The root development app caches fonts and the latest decoded source/analysis.
+Refresh Preview checks source file identity, size, and nanosecond modification/change
+times; replacing audio at the same path invalidates decoded playback and analysis.
+This metadata check is not a content hash. Analysis keys include sample rate, FPS,
+band count, frequency range/scale, and peak mapping.
+
+Particle setting edits rebuild in one background worker. The previous preview stays
+visible until the latest result is ready; pending obsolete builds are canceled and
+outdated results are ignored. A running obsolete build may finish before the newest
+one starts. Disabled particles allocate no trajectory arrays. Re-enabling in the GUI
+builds them in the background; standalone Renderer users can re-enable directly,
+with initialization on the first enabled render.
+
+Run `.venv/bin/python -m unittest discover -s tests -v` from the repository root.
+See [performance measurements](docs/preview_performance.md) for scope and results.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_26_Preview_Performance.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_26_Preview_Performance.zip)

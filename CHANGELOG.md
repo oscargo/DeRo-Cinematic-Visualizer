@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.26 — Preview Performance
+
+- Skip disabled particle initialization while preserving live re-enabling.
+- Cache fonts and reuse unchanged audio decoding and spectrum analysis.
+- Invalidate preview caches when source file identity or analysis settings change.
+- Rebuild particle previews on one background worker; cancel queued obsolete edits and discard stale results.
+- Preserve deterministic rendering and existing CPU MP4 encoding.
+
 ## v0.1.25 — Continuous Particles
 
 - Added continuous particle replenishment for speeds up to 30x.

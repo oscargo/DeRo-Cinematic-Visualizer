@@ -4,6 +4,7 @@ No GUI dependency. Renderer.render(seconds) returns RGB PIL.Image and works in
 standalone exports or as a rendering component inside DeRo Sync.
 """
 from __future__ import annotations
+from functools import lru_cache
 from dataclasses import dataclass
 import math
 import os
@@ -136,7 +137,8 @@ class Renderer:
         self.overlay_cache=None
         self.features = features
         self.rng = np.random.default_rng(settings.seed)
-        self.particles = self._make_particles()
+        self.particles = self._make_particles() if settings.particles_enabled else []
+        self._particles_initialized = settings.particles_enabled
         self.trajectories = self._particle_trajectories()
         self.base = self._background()
 
@@ -268,6 +270,10 @@ class Renderer:
 
     def render(self, seconds: float) -> Image.Image:
         s = self.s
+        if s.particles_enabled and not self._particles_initialized:
+            self.particles = self._make_particles()
+            self.trajectories = self._particle_trajectories()
+            self._particles_initialized = True
         w,h = s.width,s.height
         img = self.base.copy().convert('RGBA')
         energy = self._energy(seconds)
@@ -323,10 +329,7 @@ class Renderer:
         windows={'Sans':'arial','Serif':'times','Mono':'cour'}[getattr(s,row+'_font')]
         windows+=('bi' if getattr(s,row+'_bold') and getattr(s,row+'_italic') else 'bd' if getattr(s,row+'_bold') else 'i' if getattr(s,row+'_italic') else '')
         candidates=[family+suffix+'.ttf',os.path.join(os.environ.get('WINDIR','C:/Windows'),'Fonts',windows+'.ttf')]
-        for candidate in candidates:
-            try:return ImageFont.truetype(candidate,size)
-            except OSError:pass
-        return ImageFont.load_default(size=size)
+        return _load_font(tuple(candidates),size)
 
     def compose_image_element(self,frame):
         s=self.s
@@ -416,3 +419,11 @@ class Renderer:
         if self.s.spectrum_mapping=='Smooth':return smooth
         stepped=energy[positions.astype(int)]
         return stepped if self.s.spectrum_mapping=='Stepped' else (stepped+smooth)*.5
+
+
+@lru_cache(maxsize=64)
+def _load_font(candidates,size):
+    for candidate in candidates:
+        try:return ImageFont.truetype(candidate,size)
+        except OSError:pass
+    return ImageFont.load_default(size=size)

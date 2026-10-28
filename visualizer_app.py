@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.25 — Continuous Particles.
+"""DeRo Cinematic Visualizer v0.1.26 — Preview Performance.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -10,6 +10,9 @@ import subprocess
 import sys
 import queue
 import shutil
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from preview_cache import PreviewCache
 import threading
 import time
 import tkinter as tk
@@ -25,7 +28,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.25 - Continuous Particles')
+        self.root.title('DeRo Cinematic Visualizer v0.1.26 - Preview Performance')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -60,6 +63,11 @@ class Application:
         self.features=None
         self.renderer=None
         self.last_preview_settings=None
+        self.preview_cache=PreviewCache()
+        self.particle_executor=ThreadPoolExecutor(max_workers=1)
+        self.particle_future=None
+        self.particle_request=None
+        self.particle_generation=0
         self.q=queue.Queue()
         self.busy=False
         self.playing=False
@@ -173,7 +181,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='CONTINUOUS PARTICLES  /  v0.1.25',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='PREVIEW PERFORMANCE  /  v0.1.26',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -576,20 +584,42 @@ class Application:
                 if not self.busy:self.prepare_preview()
                 return
             for key in ('title','title_font','title_bold','title_italic','title_uppercase','title_color',
-                        'artist','artist_font','artist_bold','artist_italic','artist_uppercase','artist_color','spectrum_gain','particles_enabled','particle_color','spectrum_color',
+                        'artist','artist_font','artist_bold','artist_italic','artist_uppercase','artist_color','spectrum_gain','particle_color','spectrum_color',
                         'overlay_enabled','overlay_path','overlay_shape','spectrum_style','spectrum_mirrored','spectrum_color_end'):
                 setattr(self.renderer.s,key,values[key])
             for key in ('title_size','title_x','title_y','artist_size','artist_x','artist_y','spectrum_width','spectrum_x','spectrum_y','spectrum_height','overlay_size','overlay_x','overlay_y','overlay_opacity','spectrum_density','spectrum_fill'):
                 setattr(self.renderer.s,key,values[key]/100)
-            particle_values={'particle_continuous':values['particle_continuous'],'particle_speed':values['particle_speed'],'particle_direction':values['particle_direction'],
+            particle_values={'particles_enabled':values['particles_enabled'],'particle_continuous':values['particle_continuous'],'particle_speed':values['particle_speed'],'particle_direction':values['particle_direction'],
                 'particle_reactive':values['particle_reactive'],'particle_reactivity':values['particle_reactivity'],'dust_count':values['dust'],
                 'reactive_fraction':values['reactive']/100,'sensitivity':values['sensitivity']}
             changed=any(getattr(self.renderer.s,key)!=value for key,value in particle_values.items())
             if changed:
-                for key,value in particle_values.items():setattr(self.renderer.s,key,value)
-                self.renderer=Renderer(self.renderer.s,self.features)
+                self.request_particle_preview(particle_values)
+            elif self.particle_request is not None:
+                self.particle_generation+=1
+                self.particle_request=None
+                if self.particle_future is not None:self.particle_future.cancel()
             self.display_frame()
         except (ValueError,OSError,tk.TclError) as exc:self.status.set(str(exc))
+
+    def request_particle_preview(self, values):
+        source=self.renderer
+        request=(id(source),tuple(values.items()))
+        if request==self.particle_request:return
+        self.particle_request=request
+        self.particle_generation+=1
+        generation=self.particle_generation
+        if self.particle_future is not None:self.particle_future.cancel()
+        # Only copied settings and read-only features cross the worker boundary.
+        settings=replace(source.s,**values)
+        features=self.features
+        future=self.particle_executor.submit(Renderer,settings,features)
+        self.particle_future=future
+        def completed(result):
+            if result.cancelled():return
+            try:self.q.put(('particles_ready',(generation,source,result.result(),None)))
+            except Exception as exc:self.q.put(('particles_ready',(generation,source,None,str(exc))))
+        future.add_done_callback(completed)
 
     def nudge(self,target,dx,dy):
         try:
@@ -633,7 +663,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.25 - Continuous Particles')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.26 - Preview Performance')
 
     def clear_media(self):
         self.pause()
@@ -710,6 +740,7 @@ class Application:
         if self.confirm_replace():
             self.pause()
             self.close_fullscreen_preview()
+            self.particle_executor.shutdown(wait=False,cancel_futures=True)
             self.root.destroy()
 
     def quick_test_preset(self):
@@ -737,7 +768,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Continuous Particles')
+        window.title('DeRo / Preview Performance')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -871,19 +902,13 @@ class Application:
             self.status.set(str(exc));return
         self.pause()
         self.busy=True;self.status.set('Analyzing music frequencies...')
+        metadata_pending=path==self.metadata_pending_path
+        cache=self.preview_cache
         def worker():
             try:
-                if path==self.metadata_pending_path:
+                if metadata_pending:
                     self.q.put(('metadata',(path,read_metadata(path))))
-                if self.samples is None or path != self.loaded_audio_path:
-                    samples,sr=load_audio(path,sample_rate=44100 if settings.frequency_max>10584 else 22050)
-                    playback=decode_preview(path)
-                else:
-                    samples,sr=self.samples
-                    if sr!=(44100 if settings.frequency_max>10584 else 22050):
-                        samples,sr=load_audio(path,sample_rate=44100 if settings.frequency_max>10584 else 22050)
-                    playback=self.preview_audio
-                features=audio_features(samples,sr,settings.fps,settings.bars,settings.frequency_min,settings.frequency_max,settings.frequency_scale,settings.spectrum_mapping)
+                samples,sr,playback,features=cache.prepare(path,settings,load_audio,decode_preview,audio_features)
                 renderer=Renderer(settings,features)
                 self.q.put(('ready',(samples,sr,features,renderer,path,playback)))
             except Exception as exc:self.q.put(('error',str(exc)))
@@ -1122,7 +1147,16 @@ class Application:
         try:
             while True:
                 kind,data=self.q.get_nowait()
-                if kind=='metadata':
+                if kind=='particles_ready':
+                    generation,source,renderer,error=data
+                    if generation!=self.particle_generation or self.renderer is not source:continue
+                    self.particle_request=None
+                    if error:
+                        self.status.set('Particle preview failed: '+error)
+                        continue
+                    self.renderer=renderer
+                    self.apply_layout_preview()
+                elif kind=='metadata':
                     path,tags=data
                     if path==self.audio.get().strip() and path==self.metadata_pending_path:
                         self.title.set(tags['title'] or os.path.splitext(os.path.basename(path))[0])
