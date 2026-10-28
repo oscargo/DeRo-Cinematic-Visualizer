@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.31 — Compact Workspace
+
+- Replace the stacked diagnostic header with a compact export strip.
+- Hide progress, timing placeholders, and inactive buttons before the first export.
+- Show progress, one elapsed/remaining-time row, the actual CPU/GPU indicator, and a small Cancel control during export.
+- Show the final duration and one Details action afterward.
+- Move report overview, technical JSON, Copy, and Save into a separate resizable Details window.
+- Keep a report window bound to its original report if another export starts.
+- Restore preview space and visually inspect idle/exporting states at normal and minimum window sizes.
+
 ## v0.1.30 — Export Diagnostics
 
 - Add View/Copy/Save local performance reports for successful, failed, and canceled exports.

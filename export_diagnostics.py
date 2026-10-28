@@ -15,7 +15,7 @@ try:
 except (ImportError,OSError):
     psutil=None
 
-APP_VERSION='0.1.30'
+APP_VERSION='0.1.31'
 
 
 class ExportReport:

@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.30 — Export Diagnostics.
+"""DeRo Cinematic Visualizer v0.1.31 — Compact Workspace.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -32,7 +32,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.30 - Export Diagnostics')
+        self.root.title('DeRo Cinematic Visualizer v0.1.31 - Compact Workspace')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -60,7 +60,9 @@ class Application:
         self.cancel_requested=False
         self.export_eta=None
         self.export_remaining=tk.StringVar(value='Remaining: —')
-        self.report_summary=tk.StringVar(value='')
+        self.export_outcome=None
+        self.compact_export_text=tk.StringVar(value='')
+        self.compact_device=tk.StringVar(value='')
         self.export_timer=ExportTimer()
         self.export_time=tk.StringVar(value=self.export_timer.text())
         self.export_device=tk.StringVar(value="Encoding: — | Rendering: CPU")
@@ -152,6 +154,8 @@ class Application:
                       foreground=[('readonly','#edf3ff')],bordercolor=[('focus','#82b8f9')])
         style.configure('Horizontal.TScale',background='#101827',troughcolor='#263752',borderwidth=0)
         style.configure('Horizontal.TProgressbar',background='#82b8f9',troughcolor='#1c2b41',borderwidth=0)
+        style.configure('Compact.Horizontal.TProgressbar',thickness=6)
+        style.configure('CompactSuccess.TLabel',background='#101827',foreground='#b6f7d1')
         style.configure('TCheckbutton',background='#101827',foreground='#e5ebf5',padding=2)
         style.map('TCheckbutton',background=[('active','#192538')])
         style.configure('Success.TFrame',background='#123b30',relief='solid',borderwidth=1)
@@ -196,33 +200,39 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='EXPORT DIAGNOSTICS  /  v0.1.30',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='v0.1.31',style='Muted.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
             ttk.Button(project_buttons,text=label,command=command,padding=(10,7)).pack(side='left',padx=(4,0))
-        export_status=ttk.Frame(header,padding=(12,10))
+        export_status=ttk.Frame(header,padding=(10,8))
         self.notification_frame=export_status
         export_status.grid(row=0,column=1,sticky='ew')
-        self.notification_heading=ttk.Label(export_status,text='Export status',style='Section.TLabel')
-        self.notification_heading.pack(anchor='w')
-        self.progress=ttk.Progressbar(export_status,maximum=100,mode='determinate',length=100)
-        self.progress.pack(fill='x',pady=(6,4))
-        self.status_label=ttk.Label(export_status,textvariable=self.status,style='Muted.TLabel',width=1,anchor='w')
-        self.status_label.pack(fill='x')
-        ttk.Label(export_status,textvariable=self.export_time,style='Muted.TLabel').pack(anchor='w',pady=(3,0))
-        ttk.Label(export_status,textvariable=self.export_remaining,style='Muted.TLabel',wraplength=320).pack(anchor='w',pady=(3,0))
-        ttk.Label(export_status,textvariable=self.export_device,style='Muted.TLabel').pack(anchor='w',pady=(3,0))
-        self.notification_caption=ttk.Label(export_status,text='Preview sound is switchable / Export includes music',style='Muted.TLabel')
-        self.notification_caption.pack(anchor='w',pady=(3,0))
-        ttk.Label(export_status,textvariable=self.report_summary,style='Muted.TLabel',wraplength=320).pack(anchor='w',pady=(3,0))
-        export_actions=ttk.Frame(export_status);export_actions.pack(anchor='w',pady=(5,0))
-        self.cancel_export_button=ttk.Button(export_actions,text='Cancel export',command=self.cancel_export,state='disabled')
-        self.cancel_export_button.pack(side='left')
-        self.view_report_button=ttk.Button(export_actions,text='View report',command=self.view_export_report,state='disabled')
-        self.view_report_button.pack(side='left',padx=5)
-        self.save_report_button=ttk.Button(export_actions,text='Save report',command=self.save_export_report,state='disabled')
-        self.save_report_button.pack(side='left')
+        export_status.columnconfigure(0,weight=1)
+        self.export_strip=export_status
+        status_row=ttk.Frame(export_status)
+        status_row.grid(row=0,column=0,sticky='ew')
+        status_row.columnconfigure(0,weight=1)
+        self.status_label=ttk.Label(status_row,textvariable=self.status,style='Muted.TLabel',width=1,anchor='w')
+        self.status_label.grid(row=0,column=0,sticky='ew')
+        self.cancel_export_button=ttk.Button(status_row,text='Cancel',command=self.cancel_export,width=6,padding=(6,2))
+        self.cancel_export_button.grid(row=0,column=1,padx=(8,0))
+        self.cancel_export_button.grid_remove()
+        self.view_report_button=ttk.Button(status_row,text='Details',command=self.view_export_report,width=6,padding=(6,2))
+        self.view_report_button.grid(row=0,column=2,padx=(8,0))
+        self.view_report_button.grid_remove()
+        self.progress=ttk.Progressbar(export_status,maximum=100,mode='determinate',length=100,style='Compact.Horizontal.TProgressbar')
+        self.progress.grid(row=1,column=0,sticky='ew',pady=(5,4))
+        self.progress.grid_remove()
+        self.export_meta_row=ttk.Frame(export_status)
+        self.export_meta_row.grid(row=2,column=0,sticky='ew')
+        self.export_meta_row.columnconfigure(0,weight=1)
+        self.export_meta_label=ttk.Label(self.export_meta_row,textvariable=self.compact_export_text,
+                                       style='Muted.TLabel',width=1,anchor='w')
+        self.export_meta_label.grid(row=0,column=0,sticky='ew')
+        ttk.Label(self.export_meta_row,textvariable=self.compact_device,style='Muted.TLabel').grid(row=0,column=1,padx=(8,0))
+        self.export_meta_row.grid_remove()
+        export_status.bind('<Configure>',lambda event:self.update_export_strip())
         body=tk.PanedWindow(shell,orient='horizontal',background='#0b101a',borderwidth=0,
                             sashwidth=5,sashpad=0,showhandle=False,
                             sashcursor='sb_h_double_arrow',opaqueresize=True)
@@ -449,10 +459,45 @@ class Application:
         completion_tone(on_error=lambda error:self.q.put(('tone_error',error)))
 
     def notification_state(self,success=False):
-        self.notification_frame.configure(style='Success.TFrame' if success else 'TFrame')
-        self.status_label.configure(style='SuccessBody.TLabel' if success else 'Muted.TLabel')
-        self.notification_caption.configure(style='SuccessBody.TLabel' if success else 'Muted.TLabel',
-            text='Saved successfully / No export errors' if success else 'Preview sound is switchable / Export includes music')
+        self.notification_frame.configure(style='TFrame')
+        self.status_label.configure(style='CompactSuccess.TLabel' if success else 'Muted.TLabel')
+
+    def update_export_strip(self):
+        if not hasattr(self,'export_meta_label'):return
+        active=self.export_control is not None
+        has_report=self.last_export_report is not None
+        if active or has_report:
+            self.progress.grid()
+            self.export_meta_row.grid()
+        else:
+            self.progress.grid_remove()
+            self.export_meta_row.grid_remove()
+        if active:
+            self.cancel_export_button.grid()
+            self.view_report_button.grid_remove()
+            elapsed=self.export_time.get().partition(': ')[2]
+            remaining=self.export_remaining.get().partition(': ')[2]
+            remaining=remaining.split(' (estimate')[0]
+            remaining=('finalizing...' if remaining.startswith('finalizing') else remaining)
+            narrow=self.export_strip.winfo_width()<430
+            if self.cancel_requested:text='Canceling · '+elapsed
+            elif narrow:text=elapsed+' · '+remaining+(' left' if remaining.startswith('~') else '')
+            else:text='Elapsed '+elapsed+' · '+('Left '+remaining if remaining.startswith('~') else remaining)
+        elif has_report:
+            self.cancel_export_button.grid_remove()
+            self.view_report_button.grid()
+            duration=self.export_time.get().partition(': ')[2]
+            state={'success':'Completed in','canceled':'Canceled after','failed':'Failed after'}.get(self.export_outcome,'Export time')
+            text=state+' '+duration
+        else:
+            self.cancel_export_button.grid_remove()
+            self.view_report_button.grid_remove()
+            text=''
+        device=self.export_device.get()
+        device=('GPU' if 'GPU —' in device else 'CPU fallback' if 'CPU (fallback)' in device else
+                'Checking...' if 'checking' in device else 'CPU' if 'Encoding: CPU' in device else '')
+        self.compact_export_text.set(text)
+        self.compact_device.set(device)
 
     def reset_frequency_controls(self):
         for key in ('frequency_min','frequency_max','frequency_scale','particle_reactivity'):self.reset_setting(key)
@@ -692,7 +737,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.30 - Export Diagnostics')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.31 - Compact Workspace')
 
     def clear_media(self):
         self.pause()
@@ -710,7 +755,6 @@ class Application:
         self.update_selection()
         self.last_export_path=None
         self.notification_state()
-        self.notification_heading.configure(text='Export status',style='Section.TLabel')
 
     def new_project(self):
         if not self.confirm_replace():return
@@ -805,7 +849,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Export Diagnostics')
+        window.title('DeRo / Compact Workspace')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -1161,7 +1205,6 @@ class Application:
         self.pause()
         self.busy=True
         self.notification_state()
-        self.notification_heading.configure(text='Exporting video',style='Section.TLabel')
         self.progress['value']=0
         self.encoder_status.set('Preparing encoder...')
         self.export_device.set('Encoding: checking... | Rendering: CPU')
@@ -1171,15 +1214,14 @@ class Application:
         self.export_control=control
         self.cancel_requested=False
         self.last_export_report=None
-        self.report_summary.set('')
         self.cancel_export_button.configure(state='normal')
-        self.view_report_button.configure(state='disabled')
-        self.save_report_button.configure(state='disabled')
         self.export_eta=ExportETA()
         self.export_remaining.set(self.export_eta.text())
         diagnostics=ExportReport(settings)
+        self.export_outcome=None
         export_started=self.export_timer.start()
         self.export_time.set(self.export_timer.text())
+        self.update_export_strip()
         def worker():
             kind,payload='finished',out
             try:
@@ -1216,28 +1258,48 @@ class Application:
         self.export_remaining.set('Remaining: —')
 
     def view_export_report(self):
-        if self.last_export_report is None:return
-        window=tk.Toplevel(self.root);window.title('Export performance report')
-        window.geometry('820x620')
-        text=tk.Text(window,wrap='word',padx=12,pady=12)
-        scroll=ttk.Scrollbar(window,command=text.yview)
+        report=self.last_export_report
+        if report is None:return
+        window=tk.Toplevel(self.root);window.title('Export details')
+        window.geometry('760x520');window.minsize(540,360)
+        buttons=ttk.Frame(window,padding=10);buttons.pack(side='bottom',fill='x')
+        notebook=ttk.Notebook(window);notebook.pack(fill='both',expand=True,padx=10,pady=(10,0))
+        overview=ttk.Frame(notebook,padding=16)
+        technical=ttk.Frame(notebook)
+        notebook.add(overview,text='Overview');notebook.add(technical,text='Technical report')
+        data=report.data
+        encoder=data.get('final_encoder') or 'Not started'
+        summary=report.summary()
+        ttk.Label(overview,text='Export '+data['status'],style='Section.TLabel').pack(anchor='w',pady=(0,12))
+        ttk.Label(overview,text='Encoder: '+encoder+'  ·  Visual rendering: CPU').pack(anchor='w',pady=(0,12))
+        summary_label=ttk.Label(overview,text=summary,justify='left',wraplength=650)
+        summary_label.pack(anchor='w')
+        explanation=ttk.Label(overview,text='Rendering and encoding overlap. Frame-feed time includes transfer and waiting.',
+                              style='Muted.TLabel',wraplength=650)
+        explanation.pack(anchor='w',pady=(14,0))
+        def resize_details(event):
+            for label in (summary_label,explanation):label.configure(wraplength=max(200,event.width-32))
+        overview.bind('<Configure>',resize_details)
+        text=tk.Text(technical,wrap='word',padx=12,pady=12)
+        scroll=ttk.Scrollbar(technical,command=text.yview)
         text.configure(yscrollcommand=scroll.set)
         scroll.pack(side='right',fill='y');text.pack(fill='both',expand=True)
-        contents=self.last_export_report.summary()+'\n\n'+report_json(self.last_export_report.data)
-        text.insert('1.0',contents);text.configure(state='disabled')
-        buttons=ttk.Frame(window,padding=8);buttons.pack(fill='x')
+        contents=summary+'\n\n'+report_json(data)
+        text.insert('1.0',report_json(data));text.configure(state='disabled')
         def copy():
             window.clipboard_clear();window.clipboard_append(contents)
-        ttk.Button(buttons,text='Copy report',command=copy).pack(side='left')
-        ttk.Button(buttons,text='Save JSON',command=self.save_export_report).pack(side='left',padx=8)
+        ttk.Button(buttons,text='Close',command=window.destroy).pack(side='right')
+        ttk.Button(buttons,text='Save JSON',command=lambda:self.save_export_report(report)).pack(side='right',padx=8)
+        ttk.Button(buttons,text='Copy report',command=copy).pack(side='right')
 
-    def save_export_report(self):
-        if self.last_export_report is None:return
+    def save_export_report(self,report=None):
+        report=self.last_export_report if report is None else report
+        if report is None:return
         path=filedialog.asksaveasfilename(initialfile='DeRo_export_report.json',defaultextension='.json',
                                          filetypes=[('JSON report','*.json')])
         if not path:return
         try:
-            with open(path,'w',encoding='utf-8') as stream:stream.write(report_json(self.last_export_report.data))
+            with open(path,'w',encoding='utf-8') as stream:stream.write(report_json(report.data))
         except OSError as exc:messagebox.showerror('Could not save report',str(exc))
 
     def open_completed_export(self,path):
@@ -1252,17 +1314,11 @@ class Application:
                 kind,data=self.q.get_nowait()
                 if kind=='export_report':
                     self.last_export_report=data
-                    attempts=data.data['attempts']
-                    render=sum(a['render_seconds'] for a in attempts)
-                    feed=sum(a['pipe_write_seconds'] for a in attempts)
-                    self.report_summary.set(f'Render {render:.1f}s | FFmpeg frame feed {feed:.1f}s | Report ready')
-                    self.view_report_button.configure(state='normal')
-                    self.save_report_button.configure(state='normal')
+                    self.export_outcome=data.data['status']
                 elif kind=='export_canceled':
                     self.busy=False
                     self.finish_export_controls()
                     self.notification_state()
-                    self.notification_heading.configure(text='Export canceled',style='Section.TLabel')
                     self.status.set('Canceled. Existing output files were preserved.')
                 elif kind=='export_timing':
                     self.export_timer.stop(data)
@@ -1317,11 +1373,9 @@ class Application:
                     if getattr(self,'export_control',None) is not None:self.finish_export_controls()
                     self.busy=False
                     self.notification_state()
-                    self.notification_heading.configure(text='Action failed',style='Section.TLabel')
                     self.status.set('Error: '+data)
                     messagebox.showerror('Visualizer',data)
                 elif kind=='tone_error':
-                    self.notification_caption.configure(text='Completion sound unavailable / Check audio output and volume')
                     self.status.set('Sound could not play: '+data)
                 elif kind=='progress':
                     if getattr(self,'cancel_requested',False):continue
@@ -1332,8 +1386,7 @@ class Application:
                     self.finish_export_controls()
                     self.busy=False;self.progress['value']=100
                     self.notification_state(True)
-                    self.notification_heading.configure(text='Export finished successfully',style='Success.TLabel')
-                    self.status.set('Saved: '+os.path.basename(data))
+                    self.status.set('Export complete · '+os.path.basename(data))
                     if self.completion_sound.get():self.play_completion_chime()
                     self.last_export_path=os.path.abspath(data)
                     if self.auto_open_export.get():
@@ -1348,6 +1401,7 @@ class Application:
             self.export_time.set(self.export_timer.text())
         if getattr(self,'export_eta',None) is not None and not self.cancel_requested:
             self.export_remaining.set(self.export_eta.text())
+        if hasattr(self,'export_meta_label'):self.update_export_strip()
         self.root.after(150,self.poll)
 
 if __name__=='__main__':

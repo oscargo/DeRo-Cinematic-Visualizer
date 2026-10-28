@@ -1,8 +1,8 @@
 # Export reports, remaining time, and cancellation
 
-Use the buttons in the top progress panel. **View report** opens the latest
-completed attempt; **Copy report** copies its summary and JSON. **Save report**
-saves JSON to the location you choose. Nothing is automatically uploaded or saved.
+Use **Details** in the compact progress panel after an export. Overview shows
+the summary; Technical report shows JSON. **Copy report** copies the summary
+and JSON, and **Save JSON** saves to the location you choose. Nothing is automatically uploaded or saved.
 The latest report is replaced when a new export starts. Save reports you want to
 compare before the next export or application close.
 
