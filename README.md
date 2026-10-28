@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.12 — Project Identity
+# DeRo Cinematic Visualizer v0.1.13 — Export Access
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.13`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.14`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo-Cinematic-Visualizer-vMAJOR.MINOR.PATCH-Feature-Name`.
-This release: `DeRo-Cinematic-Visualizer-v0.1.12-Project-Identity.zip`.
+This release: `DeRo-Cinematic-Visualizer-v0.1.13-Export-Access.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -144,3 +144,7 @@ The current project name is shown beneath the app name in the upper-left header.
 Saved projects show the filename without `.dero`; unsaved projects show Artist - Song
 when available, otherwise Untitled project. The label updates on New, Open, Save,
 and Save As. Long names wrap within the header. No composition settings are changed.
+
+## v0.1.13 — Export Access
+Moved **Open export folder** from the sidebar to the export range controls,
+immediately left of **Export MP4**, matching the supplied screenshot.

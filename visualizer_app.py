@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.12 — Project Identity.
+"""DeRo Cinematic Visualizer v0.1.13 — Export Access.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview is silent; exports include audio.
@@ -23,7 +23,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.12 - Project Identity')
+        self.root.title('DeRo Cinematic Visualizer v0.1.13 - Export Access')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -139,7 +139,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='PROJECT IDENTITY  /  v0.1.12',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='EXPORT ACCESS  /  v0.1.13',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -245,7 +245,6 @@ class Application:
         field('Resolution',self.res,('1920 x 1080','1280 x 720','854 x 480'))
         field('Frames per second',self.fps,(60,30))
         ttk.Button(controls,text='Quick test / 480p / 30 FPS',command=self.quick_test_preset).pack(fill='x',pady=(10,0))
-        ttk.Button(controls,text='Open export folder',command=self.open_export_folder).pack(fill='x',pady=(8,12))
 
         workspace=ttk.Frame(body,style='Shell.TFrame');body.add(workspace,minsize=620,stretch='always')
         workspace.columnconfigure(0,weight=1);workspace.rowconfigure(0,weight=1)
@@ -281,6 +280,7 @@ class Application:
         self.range_canvas.bind('<ButtonRelease-1>',lambda event:setattr(self,'range_handle',None))
         times=ttk.Frame(selection);times.pack(fill='x')
         ttk.Button(times,text='Export MP4',style='Accent.TButton',command=self.export_file).pack(side='right')
+        ttk.Button(times,text='Open export folder',command=self.open_export_folder).pack(side='right',padx=(8,8))
         for label,var in (('Start (s)',self.selection_start),('End (s)',self.selection_end)):
             ttk.Label(times,text=label,style='Muted.TLabel').pack(side='left',padx=(0,6))
             entry=ttk.Entry(times,textvariable=var,width=9);entry.pack(side='left',padx=(0,16))
@@ -354,7 +354,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.12 - Project Identity')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.13 - Export Access')
 
     def clear_media(self):
         self.pause()

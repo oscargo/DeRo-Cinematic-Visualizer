@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.13 — Export Access
+
+- Moved Open export folder beside Export MP4 in the export range panel.
+- Removed the old sidebar button; preserved remembered folder behavior.
+
 ## v0.1.12 — Project Identity
 
 - Display the current project name below the app name in the upper-left header.
