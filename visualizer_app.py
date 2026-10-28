@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.29 — Export Timing.
+"""DeRo Cinematic Visualizer v0.1.30 — Export Diagnostics.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -20,7 +20,9 @@ from tkinter import filedialog, messagebox, ttk, colorchooser, font as tkfont
 from PIL import Image, ImageTk
 from visualizer_core import Settings, Renderer, audio_features
 from audio_io import load_audio, read_metadata, suggested_name
-from export_timing import ExportTimer
+from export_timing import ExportTimer,ExportETA
+from export_control import ExportControl,ExportCancelled
+from export_diagnostics import ExportReport,report_json
 from export_video import export
 from video_encoder import ENCODER_CHOICES
 from preview_audio import PreviewAudio, decode_preview
@@ -30,7 +32,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.29 - Export Timing')
+        self.root.title('DeRo Cinematic Visualizer v0.1.30 - Export Diagnostics')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -52,6 +54,13 @@ class Application:
         self.pending_selection=None
         self.layout_job=None
         self.metadata_pending_path=None
+        self.export_control=None
+        self.last_export_report=None
+        self.close_when_export_done=False
+        self.cancel_requested=False
+        self.export_eta=None
+        self.export_remaining=tk.StringVar(value='Remaining: —')
+        self.report_summary=tk.StringVar(value='')
         self.export_timer=ExportTimer()
         self.export_time=tk.StringVar(value=self.export_timer.text())
         self.export_device=tk.StringVar(value="Encoding: — | Rendering: CPU")
@@ -187,7 +196,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='EXPORT TIMING  /  v0.1.29',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='EXPORT DIAGNOSTICS  /  v0.1.30',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -202,9 +211,18 @@ class Application:
         self.status_label=ttk.Label(export_status,textvariable=self.status,style='Muted.TLabel',width=1,anchor='w')
         self.status_label.pack(fill='x')
         ttk.Label(export_status,textvariable=self.export_time,style='Muted.TLabel').pack(anchor='w',pady=(3,0))
+        ttk.Label(export_status,textvariable=self.export_remaining,style='Muted.TLabel',wraplength=320).pack(anchor='w',pady=(3,0))
         ttk.Label(export_status,textvariable=self.export_device,style='Muted.TLabel').pack(anchor='w',pady=(3,0))
         self.notification_caption=ttk.Label(export_status,text='Preview sound is switchable / Export includes music',style='Muted.TLabel')
         self.notification_caption.pack(anchor='w',pady=(3,0))
+        ttk.Label(export_status,textvariable=self.report_summary,style='Muted.TLabel',wraplength=320).pack(anchor='w',pady=(3,0))
+        export_actions=ttk.Frame(export_status);export_actions.pack(anchor='w',pady=(5,0))
+        self.cancel_export_button=ttk.Button(export_actions,text='Cancel export',command=self.cancel_export,state='disabled')
+        self.cancel_export_button.pack(side='left')
+        self.view_report_button=ttk.Button(export_actions,text='View report',command=self.view_export_report,state='disabled')
+        self.view_report_button.pack(side='left',padx=5)
+        self.save_report_button=ttk.Button(export_actions,text='Save report',command=self.save_export_report,state='disabled')
+        self.save_report_button.pack(side='left')
         body=tk.PanedWindow(shell,orient='horizontal',background='#0b101a',borderwidth=0,
                             sashwidth=5,sashpad=0,showhandle=False,
                             sashcursor='sb_h_double_arrow',opaqueresize=True)
@@ -674,7 +692,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.29 - Export Timing')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.30 - Export Diagnostics')
 
     def clear_media(self):
         self.pause()
@@ -748,11 +766,19 @@ class Application:
         else:self.status.set('Project opened. Choose music to preview.')
 
     def close_project(self):
+        if self.close_when_export_done:return
         if self.confirm_replace():
-            self.pause()
-            self.close_fullscreen_preview()
-            self.particle_executor.shutdown(wait=False,cancel_futures=True)
-            self.root.destroy()
+            if self.export_control is not None:
+                self.close_when_export_done=True
+                self.cancel_export()
+                return
+            self.destroy_application()
+
+    def destroy_application(self):
+        self.pause()
+        self.close_fullscreen_preview()
+        self.particle_executor.shutdown(wait=False,cancel_futures=True)
+        self.root.destroy()
 
     def quick_test_preset(self):
         self.res.set('854 x 480')
@@ -779,7 +805,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Export Timing')
+        window.title('DeRo / Export Diagnostics')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -1141,21 +1167,78 @@ class Application:
         self.export_device.set('Encoding: checking... | Rendering: CPU')
         self.status.set('Exporting video. High-resolution rendering may be slow.')
         cached_analysis=self.preview_cache.snapshot()
+        control=ExportControl()
+        self.export_control=control
+        self.cancel_requested=False
+        self.last_export_report=None
+        self.report_summary.set('')
+        self.cancel_export_button.configure(state='normal')
+        self.view_report_button.configure(state='disabled')
+        self.save_report_button.configure(state='disabled')
+        self.export_eta=ExportETA()
+        self.export_remaining.set(self.export_eta.text())
+        diagnostics=ExportReport(settings)
         export_started=self.export_timer.start()
         self.export_time.set(self.export_timer.text())
         def worker():
+            kind,payload='finished',out
             try:
-                export(audio_path,out,settings,progress=lambda i,n:self.q.put(('progress',(i,n))),
+                export(audio_path,out,settings,progress=lambda i,n:self.q.put(('progress',(i,n,time.monotonic()))),
                        start_seconds=start,end_seconds=end,cached_analysis=cached_analysis,
-                       encoder_status=lambda message:self.q.put(('encoder',message)))
-                if not os.path.isfile(out) or os.path.getsize(out) == 0:
+                       encoder_status=lambda message:self.q.put(('encoder',message)),
+                       cancel=control,diagnostics=diagnostics)
+                if not os.path.isfile(out) or os.path.getsize(out)==0:
                     raise RuntimeError('Export returned without a valid output MP4.')
-                self.q.put(('export_timing',time.monotonic()-export_started))
-                self.q.put(('finished',out))
+            except ExportCancelled:
+                kind,payload='export_canceled',None
             except Exception as exc:
+                kind,payload='error',str(exc)
+                if diagnostics.data['status']=='success':
+                    diagnostics.data.update(status='failed',failure_stage='output_validation',error_type=type(exc).__name__)
+            finally:
+                self.q.put(('export_report',diagnostics))
                 self.q.put(('export_timing',time.monotonic()-export_started))
-                self.q.put(('error',str(exc)))
+            self.q.put((kind,payload))
         threading.Thread(target=worker,daemon=True).start()
+
+    def cancel_export(self):
+        if self.export_control is not None and self.export_control.cancel():
+            self.cancel_requested=True
+            self.cancel_export_button.configure(state='disabled')
+            self.status.set('Canceling export...')
+            self.export_remaining.set('Remaining: canceling...')
+
+    def finish_export_controls(self):
+        self.export_control=None
+        self.cancel_requested=False
+        self.cancel_export_button.configure(state='disabled')
+        if self.export_eta is not None:self.export_eta.finished=True
+        self.export_remaining.set('Remaining: —')
+
+    def view_export_report(self):
+        if self.last_export_report is None:return
+        window=tk.Toplevel(self.root);window.title('Export performance report')
+        window.geometry('820x620')
+        text=tk.Text(window,wrap='word',padx=12,pady=12)
+        scroll=ttk.Scrollbar(window,command=text.yview)
+        text.configure(yscrollcommand=scroll.set)
+        scroll.pack(side='right',fill='y');text.pack(fill='both',expand=True)
+        contents=self.last_export_report.summary()+'\n\n'+report_json(self.last_export_report.data)
+        text.insert('1.0',contents);text.configure(state='disabled')
+        buttons=ttk.Frame(window,padding=8);buttons.pack(fill='x')
+        def copy():
+            window.clipboard_clear();window.clipboard_append(contents)
+        ttk.Button(buttons,text='Copy report',command=copy).pack(side='left')
+        ttk.Button(buttons,text='Save JSON',command=self.save_export_report).pack(side='left',padx=8)
+
+    def save_export_report(self):
+        if self.last_export_report is None:return
+        path=filedialog.asksaveasfilename(initialfile='DeRo_export_report.json',defaultextension='.json',
+                                         filetypes=[('JSON report','*.json')])
+        if not path:return
+        try:
+            with open(path,'w',encoding='utf-8') as stream:stream.write(report_json(self.last_export_report.data))
+        except OSError as exc:messagebox.showerror('Could not save report',str(exc))
 
     def open_completed_export(self,path):
         if self.last_export_path!=path:return
@@ -1167,7 +1250,21 @@ class Application:
         try:
             while True:
                 kind,data=self.q.get_nowait()
-                if kind=='export_timing':
+                if kind=='export_report':
+                    self.last_export_report=data
+                    attempts=data.data['attempts']
+                    render=sum(a['render_seconds'] for a in attempts)
+                    feed=sum(a['pipe_write_seconds'] for a in attempts)
+                    self.report_summary.set(f'Render {render:.1f}s | FFmpeg frame feed {feed:.1f}s | Report ready')
+                    self.view_report_button.configure(state='normal')
+                    self.save_report_button.configure(state='normal')
+                elif kind=='export_canceled':
+                    self.busy=False
+                    self.finish_export_controls()
+                    self.notification_state()
+                    self.notification_heading.configure(text='Export canceled',style='Section.TLabel')
+                    self.status.set('Canceled. Existing output files were preserved.')
+                elif kind=='export_timing':
                     self.export_timer.stop(data)
                     self.export_time.set(self.export_timer.text())
                 elif kind=='encoder':
@@ -1175,7 +1272,7 @@ class Application:
                             'CPU (fallback)' if data.startswith('CPU fallback') else 'CPU')
                     self.export_device.set('Encoding: '+device+' | Rendering: CPU')
                     self.encoder_status.set(data)
-                    self.status.set(data)
+                    if not getattr(self,'cancel_requested',False):self.status.set(data)
                 elif kind=='particles_ready':
                     generation,source,renderer,error=data
                     if generation!=self.particle_generation or self.renderer is not source:continue
@@ -1217,6 +1314,7 @@ class Application:
                     self.apply_layout_preview()
                     self.display_frame()
                 elif kind=='error':
+                    if getattr(self,'export_control',None) is not None:self.finish_export_controls()
                     self.busy=False
                     self.notification_state()
                     self.notification_heading.configure(text='Action failed',style='Section.TLabel')
@@ -1226,9 +1324,12 @@ class Application:
                     self.notification_caption.configure(text='Completion sound unavailable / Check audio output and volume')
                     self.status.set('Sound could not play: '+data)
                 elif kind=='progress':
-                    i,n=data;self.progress['value']=i/n*100
+                    if getattr(self,'cancel_requested',False):continue
+                    i,n,*timestamp=data;self.progress['value']=i/n*100
+                    if getattr(self,'export_eta',None) is not None:self.export_eta.update(i,n,now=timestamp[0] if timestamp else None)
                     self.status.set(f'Exporting MP4: {i/n*100:.1f}% ({i}/{n} frames)')
                 elif kind=='finished':
+                    self.finish_export_controls()
                     self.busy=False;self.progress['value']=100
                     self.notification_state(True)
                     self.notification_heading.configure(text='Export finished successfully',style='Success.TLabel')
@@ -1240,8 +1341,13 @@ class Application:
                         # another video player takes focus and starts its audio.
                         self.root.after(2000,lambda path=self.last_export_path:self.open_completed_export(path))
         except queue.Empty:pass
+        if getattr(self,'close_when_export_done',False) and self.export_control is None:
+            self.destroy_application()
+            return
         if getattr(self,'export_timer',None) is not None:
             self.export_time.set(self.export_timer.text())
+        if getattr(self,'export_eta',None) is not None and not self.cancel_requested:
+            self.export_remaining.set(self.export_eta.text())
         self.root.after(150,self.poll)
 
 if __name__=='__main__':

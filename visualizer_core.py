@@ -72,7 +72,7 @@ class Settings:
     export_encoder: str = "Auto (GPU if available)"
 
 
-def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, frequency_min=50., frequency_max=None, frequency_scale='Logarithmic', spectrum_mapping='Smooth') -> np.ndarray:
+def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, frequency_min=50., frequency_max=None, frequency_scale='Logarithmic', spectrum_mapping='Smooth', cancel_check=None) -> np.ndarray:
     """Frequency-band energies (frames, bars) from mono 16/32bit decoded audio.
 
     Log-spaced bands from 50 Hz to min(14000, sample_rate * .48),
@@ -102,6 +102,7 @@ def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, f
     energies = np.zeros((nframes, bars), np.float32)
     window = np.hanning(nfft).astype(np.float32)
     for i in range(nframes):
+        if cancel_check is not None and i%64==0:cancel_check()
         midpoint = round((i + .5) * sample_rate / fps)
         a = midpoint - nfft // 2
         b = a + nfft
@@ -126,13 +127,16 @@ def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, f
     reference = max(float(np.max(energies)), 1e-7)
     energies = (energies / reference) ** .68 * .95
     for i in range(1, nframes):
+        if cancel_check is not None and i%64==0:cancel_check()
         drop = .79
         energies[i] = np.maximum(energies[i], energies[i-1] * drop)
     return energies
 
 
 class Renderer:
-    def __init__(self, settings: Settings, features: np.ndarray | None = None):
+    def __init__(self, settings: Settings, features: np.ndarray | None = None, cancel_check=None):
+        self.cancel_check=cancel_check
+        if cancel_check is not None:cancel_check()
         self.s = settings
         self.overlay_cache_key=None
         self.overlay_cache=None
@@ -212,6 +216,7 @@ class Renderer:
         smooth = 0.
         previous = 0.
         for i in range(nframes):
+            if self.cancel_check is not None and i%64==0:self.cancel_check()
             bass = float(bass_track[i])
             smooth = .91*smooth + .09*bass
             onset = max(0., bass - previous*.82)

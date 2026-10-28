@@ -7,7 +7,8 @@ NVENC_OPTIONS=['-c:v','h264_nvenc','-preset','p4','-tune','hq',
                '-rc','vbr','-cq','20','-b:v','0']
 
 
-def select_encoder(settings,ffmpeg='ffmpeg',report=None):
+def select_encoder(settings,ffmpeg='ffmpeg',report=None,cancel=None):
+    if cancel is not None:cancel.check()
     mode=settings.export_encoder
     if mode not in ENCODER_CHOICES:raise ValueError('Unsupported export encoder: '+str(mode))
     if mode==ENCODER_CHOICES[2]:
@@ -18,8 +19,8 @@ def select_encoder(settings,ffmpeg='ffmpeg',report=None):
          '-i',f'color=c=black:s={settings.width}x{settings.height}:r={settings.fps}',
          '-frames:v','1','-an',*NVENC_OPTIONS,'-pix_fmt','yuv420p','-f','null','-']
     try:
-        result=subprocess.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,
-                              timeout=20,check=False)
+        result=(cancel.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=20) if cancel is not None else
+                subprocess.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=20,check=False))
         available=result.returncode==0
         reason=result.stderr.decode('utf-8','replace').strip().splitlines()
         reason=reason[0][:240] if reason else ''

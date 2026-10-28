@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.30 — Export Diagnostics
+
+- Add View/Copy/Save local performance reports for successful, failed, and canceled exports.
+- Measure decoding, analysis, renderer setup, GPU probing, frame rendering, FFmpeg frame-feed blocking, and final wait separately.
+- Record cache-miss reasons, encoder attempts/fallback categories, frame timings, effective export FPS, sampled RAM, and software/available NVIDIA device versions.
+- Exclude media contents, titles, filenames, full paths, raw subprocess logs, and credentials from report data.
+- Add recent-throughput remaining-time estimates, with explicit estimation/finalization states and retry resets.
+- Add safe cancellation during decoding, analysis, particle setup, encoder probing, pipe writes, and finalization; preserve existing output files.
+- Wait for cancellation cleanup before closing the application during an export.
+- Add psutil for sampled RAM measurements; exports still work if monitoring is unavailable.
+
 ## v0.1.29 — Export Timing
 
 - Show a live HH:MM:SS elapsed timer in the top export progress area.

@@ -58,6 +58,13 @@ class CachedAnalysis:
     sample_rate: int
     features: object
 
+    def mismatch_reason(self,path,settings):
+        try:key=PreviewCache.key(path,settings)
+        except OSError:return 'source_unavailable'
+        if self.key[0][0]!=key[0][0]:return 'source_changed'
+        if self.key[0][1]!=key[0][1]:return 'sample_rate_changed'
+        if self.key[1:]!=key[1:]:return 'analysis_settings_changed'
+        return None
+
     def matches(self,path,settings):
-        try:return self.key==PreviewCache.key(path,settings)
-        except OSError:return False
+        return self.mismatch_reason(path,settings) is None

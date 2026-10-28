@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.29 — Export Timing
+# DeRo Cinematic Visualizer v0.1.30 — Export Diagnostics
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.30`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.31`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_29_Export_Timing.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_30_Export_Diagnostics.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_29_Export_Timing**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_30_Export_Diagnostics**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -452,3 +452,27 @@ The same panel shows **Encoding: GPU — NVIDIA NVENC**, **Encoding: CPU**, or
 in Output does not falsely label an unavailable GPU as active.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_29_Export_Timing.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_29_Export_Timing.zip)
+
+
+## v0.1.30 — Export Diagnostics
+
+The export progress panel adds **Remaining**, **Cancel export**, **View report**,
+and **Save report**. Remaining time is an estimate based on recent frame-processing
+speed. It shows "estimating" during preparation or when measurements are stale,
+resets on CPU fallback, and switches to "finalizing audio/video" once all frames
+are sent. The live elapsed timer remains the complete export duration.
+
+Cancel stops the export and cleans up its temporary MP4 without replacing an
+existing destination. A cancellation requested after the final atomic replacement
+has committed completes as success. Closing during export waits for cancellation
+cleanup. Small native operations and individual frame rendering can finish before
+cooperative cancellation takes effect.
+
+After success, failure, or cancellation, View report displays timing and settings
+details with Copy/Save controls. Save report writes JSON only to a location you
+choose. Reports stay local; the most recent report remains in memory until the
+next export or application close. See [report fields and interpretation](docs/export_diagnostics.md).
+The launcher installs `psutil` for sampled RAM measurements; unavailable monitoring
+does not prevent export.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_30_Export_Diagnostics.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_30_Export_Diagnostics.zip)

@@ -1,6 +1,6 @@
 # NVIDIA GPU encoding on Windows
 
-1. Extract the complete v0.1.28 ZIP to a new folder. Keep the new `video_encoder.py`
+1. Extract the complete release ZIP to a new folder. Keep the new `video_encoder.py`
    with the other app files.
 2. Install a current NVIDIA driver supporting your GPU. Use an FFmpeg build with
    `h264_nvenc`; the existing launcher finds FFmpeg in `C:\FFmpeg\bin`, the app's

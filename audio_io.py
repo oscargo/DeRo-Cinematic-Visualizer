@@ -2,8 +2,10 @@
 import subprocess
 import numpy as np
 
-def load_audio(path, sample_rate=22050, ffmpeg='ffmpeg'):
-    proc=subprocess.run([ffmpeg,'-v','error','-i',path,'-vn','-ac','1','-ar',str(sample_rate),'-f','f32le','pipe:1'],capture_output=True)
+def load_audio(path, sample_rate=22050, ffmpeg='ffmpeg', cancel=None):
+    cmd=[ffmpeg,'-v','error','-i',path,'-vn','-ac','1','-ar',str(sample_rate),'-f','f32le','pipe:1']
+    proc=(cancel.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE) if cancel is not None else
+          subprocess.run(cmd,capture_output=True))
     if proc.returncode:
         raise RuntimeError(proc.stderr.decode('utf-8','replace')[-1600:])
     samples=np.frombuffer(proc.stdout,dtype='<f4').copy()
