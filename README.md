@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.1 — standalone prototype
+# DeRo Cinematic Visualizer v0.1.6 — Quick Export Selection
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -9,7 +9,7 @@ A standalone, reusable Python 3.12 music visualizer. It renders cinematic floati
 4. Adjust title, number of dust particles, reactive %, and sensitivity. Click **Refresh Preview** after changing settings, and **Export MP4** when ready.
 5. Defaults: 1920×1080 / 60 FPS. 30 FPS and smaller resolutions are selectable.
 
-**Important limitations of v0.1.1:**
+**Current limitations:**
 - The animation preview is **silent**. It is not synchronized audio monitoring; exported MP4 *does* include music.
 - Background supports **still images or built-in navy gradient only**, not background video yet. Adding video compositing later should preserve the renderer API.
 - MP4 encoding uses CPU libx264, not GPU NVENC. Full-length 1080p60 can be slow.
@@ -55,7 +55,7 @@ Music and Background Browse each remember the last folder chosen, even after clo
 ### v0.1.5 export folder memory
 The Export MP4 save dialog remembers the last chosen output folder, independently of the music and background file pickers. Open Export Folder uses that same folder after app restarts. Settings are under `%APPDATA%\DeRo_Cinematic_Visualizer\folders.json`.
 
-## Quick test exports
+## v0.1.6 — Quick Export Selection
 After loading music, drag the yellow selection handles or enter Start / End in seconds.
 Use **Start at playhead** and **End at playhead** to mark the current preview position.
 **Full Song** resets the range. **Play Selection**, **Pause**, **Loop Selection**, and
@@ -64,3 +64,10 @@ Use **Start at playhead** and **End at playhead** to mark the current preview po
 Choose 854 × 480 / 30 FPS for faster test renders. Export progress counts only selected frames.
 Visuals retain the original song timestamps, so clips match the full-song animation.
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
+
+## Version and package naming
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.7`.
+Each update has a short descriptive name in the app title, README, and changelog.
+Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
+folder use `DeRo-Cinematic-Visualizer-vMAJOR.MINOR.PATCH-Feature-Name`.
+This release: `DeRo-Cinematic-Visualizer-v0.1.6-Quick-Export-Selection.zip`.

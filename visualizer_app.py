@@ -17,7 +17,7 @@ from export_video import export
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.5')
+        self.root.title('DeRo Cinematic Visualizer v0.1.6 - Quick Export Selection')
         self.root.geometry('1120x810')
         self.folder_preferences = self._load_folder_preferences()
         self.audio=tk.StringVar()
