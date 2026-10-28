@@ -48,6 +48,7 @@ class Settings:
     artist_uppercase: bool = False
     artist_color: str = "#f8f9fd"
     spectrum_height: float = 0.068
+    particle_continuous: bool = True
     particles_enabled: bool = True
     particle_reactivity: str = 'Bass'
     particle_direction: str = 'Out'
@@ -155,7 +156,7 @@ class Renderer:
         return Image.fromarray(np.broadcast_to(rows[:, None, :], (h, w, 3)).astype('uint8').copy(), 'RGB')
 
     def _make_particles(self):
-        """Seeded, independent flecks. No wrapping, recycling, or tiled paths."""
+        """Seeded independent flecks; continuous mode supplies fresh particles."""
         r = self.rng
         result = []
         for _ in range(self.s.dust_count):
@@ -185,12 +186,18 @@ class Renderer:
         """
         count = len(self.particles)
         if not count:
+            self.particle_fades=np.ones((1,0),np.float32)
             return np.zeros((1, 0, 2), dtype=np.float32)
         nframes = len(self.features) if self.features is not None else self.s.fps * 20
         nframes = max(1, nframes)
         r = np.random.default_rng(self.s.seed + 1907)
         pos = np.array([[p['x'], p['y']] for p in self.particles], np.float64)
         vel = np.array([[p['vx'], p['vy']] for p in self.particles], np.float64)
+        base_vel=vel.copy()
+        spawn=np.random.default_rng(self.s.seed+7813)
+        fade_frames=max(1,round(self.s.fps*.6))
+        born=np.full(count,-fade_frames,dtype=int)
+        self.particle_fades=np.ones((nframes,count),np.float32)
         reactive = np.array([p['reactive'] for p in self.particles], dtype=bool)
         # Each particle has its own response curve and small directional variation.
         gains = r.uniform(.55, 1.40, count)
@@ -219,13 +226,34 @@ class Renderer:
                 vel[reactive, 0] += np.cos(angles[reactive])*impulse[reactive]
                 vel[reactive, 1] += np.sin(angles[reactive])*impulse[reactive]
             # Drag on beat momentum (not position). Preserve some underlying drift.
-            base_vel = np.array([[p['vx'],p['vy']] for p in self.particles])
             vel = base_vel + (vel-base_vel)*.994
             # Cap exceptional peak motion; do not oscillate or spring back.
             speed = np.linalg.norm(vel,axis=1)
             cap = .0065
             vel *= np.minimum(1., cap/np.maximum(speed,1e-9))[:,None]
             pos += vel * self.s.particle_speed / self.s.fps
+            if self.s.particle_continuous:
+                expired=np.flatnonzero(np.any((pos<-.025)|(pos>1.025),axis=1))
+                for index in expired:
+                    mode=self.s.particle_direction
+                    if mode=='Out':
+                        x,y=spawn.uniform(.12,.88,2)
+                        angle=math.atan2(y-.5,(x-.5)*1.35)+spawn.normal(0,.4)
+                    elif mode in ('Left','Right'):
+                        x=-.015 if mode=='Right' else 1.015
+                        y=spawn.uniform(.06,.94)
+                        angle=(0 if mode=='Right' else math.pi)+spawn.normal(0,.12)
+                    else:
+                        x=spawn.uniform(.06,.94)
+                        y=-.015 if mode=='Down' else 1.015
+                        angle=(math.pi/2 if mode=='Down' else -math.pi/2)+spawn.normal(0,.12)
+                    speed=spawn.uniform(.0004,.0020)
+                    pos[index]=(x,y)
+                    base_vel[index]=(math.cos(angle)*speed,math.sin(angle)*speed)
+                    vel[index]=base_vel[index]
+                    born[index]=i
+                edge=np.minimum(pos,1-pos).min(axis=1)
+                self.particle_fades[i]=np.clip((i-born)/fade_frames,0,1)*np.clip(edge/.04,0,1)
             results[i] = pos
         return results
 
@@ -251,14 +279,14 @@ class Renderer:
         scale = h/1080
         frame_index = min(len(self.trajectories)-1, max(0, round(seconds*s.fps)))
         positions = self.trajectories[frame_index]
-        for p, position in zip(self.particles if s.particles_enabled else [], positions):
+        for particle_index,(p, position) in enumerate(zip(self.particles if s.particles_enabled else [], positions)):
             x, y = float(position[0])*w, float(position[1])*h
-            # Exiting flecks are gone permanently; never wrap or bounce.
+            # Continuous births fade in; outgoing particles fade at the edges.
             if x < -12 or y < -12 or x > w+12 or y > h+12:
                 continue
             react = p['reactive'] and s.particle_reactive
             size = p['size']*scale*(1 + (.45*bass*s.sensitivity if react else 0))
-            opacity = p['alpha']*(1 + (.5*mid + .3*treble)*s.sensitivity if react else 1)
+            opacity = float(self.particle_fades[frame_index,particle_index])*p['alpha']*(1 + (.5*mid + .3*treble)*s.sensitivity if react else 1)
             a = max(0,min(210, int(opacity*255)))
             col = tuple(bytes.fromhex(s.particle_color.lstrip('#')))+(a,)
             if p['kind']==0:  # irregular tiny dust

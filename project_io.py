@@ -8,7 +8,7 @@ DEFAULTS = {
     'spectrum_mapping':'Smooth','spectrum_style':'Classic bars','spectrum_mirrored':True,'spectrum_density':100.0,
     'spectrum_fill':58.0,'spectrum_color_end':'#35a5ff',
     'frequency_min':50.0,'frequency_max':10584.0,'frequency_scale':'Logarithmic',
-    'particles_enabled':True,'particle_reactivity':'Bass','particle_direction':'Out','particle_reactive':True,
+    'particle_continuous':True,'particles_enabled':True,'particle_reactivity':'Bass','particle_direction':'Out','particle_reactive':True,
     'particle_color':'#ebeef7','spectrum_color':'#f0f6ff',
     'overlay_enabled':False,'overlay_path':'','overlay_size':20.0,'overlay_x':50.0,
     'overlay_y':50.0,'overlay_opacity':100.0,'overlay_shape':'Original',

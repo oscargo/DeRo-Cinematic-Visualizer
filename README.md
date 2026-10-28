@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.24 — Peak Shape Options
+# DeRo Cinematic Visualizer v0.1.25 — Continuous Particles
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.25`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.26`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_24_Peak_Shape_Options.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_25_Continuous_Particles.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_24_Peak_Shape_Options**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_25_Continuous_Particles**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -360,3 +360,19 @@ used by preview and export, with its own Reset button. Smooth remains the defaul
 for compatibility with current projects. No random height changes are added.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_24_Peak_Shape_Options.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_24_Peak_Shape_Options.zip)
+
+## v0.1.25 — Continuous Particles
+**Elements → Continuous particles** keeps the scene populated even at 30x speed.
+As a particle exits, a fresh particle appears gradually with a short fade-in.
+Outgoing particles fade near the edges rather than wrapping visibly across the
+screen. Directional modes introduce new particles at the incoming edge; Out
+introduces them at varied interior positions with fresh outward velocities.
+
+Continuous mode is on by default, including for older projects without this new
+setting. Turn it off for the original non-recycling behavior. The choice is saved
+in projects and has a Reset button. Speed, direction, count, colors, and beat
+response remain adjustable. Positions and fades are deterministic at each song
+time, so seeking and exports remain consistent. Dust count is the active pool
+size; the number fully visible varies while particles enter and leave.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_25_Continuous_Particles.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_25_Continuous_Particles.zip)

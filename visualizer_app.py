@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.24 — Peak Shape Options.
+"""DeRo Cinematic Visualizer v0.1.25 — Continuous Particles.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -25,7 +25,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.24 - Peak Shape Options')
+        self.root.title('DeRo Cinematic Visualizer v0.1.25 - Continuous Particles')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -74,7 +74,7 @@ class Application:
         self.saved_project_state=self.project_state()
         self.root.protocol('WM_DELETE_WINDOW',self.close_project)
         for key in ('fps','bands','frequency_min','frequency_max','frequency_scale','spectrum_mapping','spectrum_style','spectrum_mirrored',
-                    'spectrum_density','spectrum_fill','spectrum_color_end','particles_enabled','particle_reactivity','particle_direction','particle_reactive','particle_color','spectrum_color',
+                    'spectrum_density','spectrum_fill','spectrum_color_end','particle_continuous','particles_enabled','particle_reactivity','particle_direction','particle_reactive','particle_color','spectrum_color',
                     'overlay_enabled','overlay_path','overlay_size','overlay_x','overlay_y','overlay_opacity','overlay_shape',
                     'dust','reactive','sensitivity','title','title_size','title_x','title_y','title_font','title_bold','title_italic',
                     'title_uppercase','title_color','artist','artist_size','artist_x','artist_y','artist_font',
@@ -173,7 +173,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='PEAK SHAPE OPTIONS  /  v0.1.24',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='CONTINUOUS PARTICLES  /  v0.1.25',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -321,6 +321,8 @@ class Application:
         section('04  /  ATMOSPHERE')
         ttk.Label(controls,text='PARTICLES',style='Section.TLabel').pack(anchor='w',pady=(0,8))
         ttk.Checkbutton(controls,text='Show particles',style='Switch.TCheckbutton',variable=self.particles_enabled).pack(anchor='w')
+        ttk.Checkbutton(controls,text='Continuous particles',style='Switch.TCheckbutton',variable=self.particle_continuous).pack(anchor='w',pady=6)
+        ttk.Label(controls,text='On: new particles fade in as others leave. Off: original non-recycling motion.',style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=4)
         field('Beat source',self.particle_reactivity,('Bass','Vocals / Midrange','Treble','Displayed range'))
         ttk.Label(controls,text='Uses frequencies inside the selected Visualizer range. Presets set this to Displayed range.',style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=5)
         field('Direction',self.particle_direction,('Out','Left','Right','Up','Down'))
@@ -514,7 +516,8 @@ class Application:
             'the rest drift normally.\n\n'
             'Particle response (0.1–3x): strength of beat-driven movement, size, '
             'and brightness for the reactive particles. React to music must be on.\n\n'
-            'Particles do not wrap or recycle. Higher speeds make them leave the frame sooner.',parent=self.root)
+            'Continuous particles replaces departing particles with fresh ones that fade in. '
+            'Turn it off for the original non-recycling behavior.',parent=self.root)
 
     def show_inspector(self,name):
         for key,page in self.inspector_pages.items():
@@ -578,7 +581,7 @@ class Application:
                 setattr(self.renderer.s,key,values[key])
             for key in ('title_size','title_x','title_y','artist_size','artist_x','artist_y','spectrum_width','spectrum_x','spectrum_y','spectrum_height','overlay_size','overlay_x','overlay_y','overlay_opacity','spectrum_density','spectrum_fill'):
                 setattr(self.renderer.s,key,values[key]/100)
-            particle_values={'particle_speed':values['particle_speed'],'particle_direction':values['particle_direction'],
+            particle_values={'particle_continuous':values['particle_continuous'],'particle_speed':values['particle_speed'],'particle_direction':values['particle_direction'],
                 'particle_reactive':values['particle_reactive'],'particle_reactivity':values['particle_reactivity'],'dust_count':values['dust'],
                 'reactive_fraction':values['reactive']/100,'sensitivity':values['sensitivity']}
             changed=any(getattr(self.renderer.s,key)!=value for key,value in particle_values.items())
@@ -630,7 +633,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.24 - Peak Shape Options')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.25 - Continuous Particles')
 
     def clear_media(self):
         self.pause()
@@ -734,7 +737,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Peak Shape Options')
+        window.title('DeRo / Continuous Particles')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -844,7 +847,7 @@ class Application:
             overlay_enabled=self.overlay_enabled.get(),overlay_path=self.overlay_path.get(),
             overlay_size=self.overlay_size.get()/100,overlay_x=self.overlay_x.get()/100,
             overlay_y=self.overlay_y.get()/100,overlay_opacity=self.overlay_opacity.get()/100,overlay_shape=self.overlay_shape.get(),
-            particles_enabled=self.particles_enabled.get(),particle_reactivity=self.particle_reactivity.get(),particle_direction=self.particle_direction.get(),
+            particle_continuous=self.particle_continuous.get(),particles_enabled=self.particles_enabled.get(),particle_reactivity=self.particle_reactivity.get(),particle_direction=self.particle_direction.get(),
             particle_reactive=self.particle_reactive.get(),particle_color=self.particle_color.get(),spectrum_color=self.spectrum_color.get(),
             spectrum_mapping=self.spectrum_mapping.get(),spectrum_style=self.spectrum_style.get(),spectrum_mirrored=self.spectrum_mirrored.get(),
             spectrum_density=self.spectrum_density.get()/100,spectrum_fill=self.spectrum_fill.get()/100,

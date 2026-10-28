@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.25 — Continuous Particles
+
+- Added continuous particle replenishment for speeds up to 30x.
+- Fade new particles in and outgoing particles near frame edges.
+- Support Out, Left, Right, Up, and Down without visible wrapping.
+- Keep original non-recycling mode available through a saved toggle and Reset.
+- Verify two-minute high-speed population, hidden births, and deterministic seeking.
+
 ## v0.1.24 — Peak Shape Options
 
 - Added Stepped (previous), Smooth (current), and Balanced peak shapes.
