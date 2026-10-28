@@ -37,7 +37,7 @@ class SelectionTests(unittest.TestCase):
         app.renderer=object();app.length=10;app.playing=False
         app.scrub=Mock()
         app.scrub.coords.side_effect=lambda value:(10+value*10,0)
-        app.display_frame=Mock();app.animate=Mock()
+        app.display_frame=Mock();app.animate=Mock();app.sync_preview_audio=Mock()
         with patch('visualizer_app.time.monotonic',return_value=100):
             self.assertEqual(app.timeline_click(SimpleNamespace(x=60)),'break')
             self.assertEqual(app.position.get(),5)

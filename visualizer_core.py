@@ -17,6 +17,7 @@ class Settings:
     fps: int = 60
     title: str = "LOVE NIGHT"
     bars: int = 384
+    spectrum_gain: float = 1.0
     spectrum_width: float = 0.82
     spectrum_x: float = 0.5
     spectrum_y: float = 0.906
@@ -78,8 +79,10 @@ def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int) -
         values = (cs[hi] - cs[lo]) / np.maximum(hi-lo, 1)
         energies[i, :] = np.sqrt(np.maximum(values, 0))
     # Static relative scaling preserves quiet/loud dynamics; avoid per-frame normalization.
-    reference = max(float(np.percentile(energies, 98)), 1e-7)
-    energies = np.clip((energies / reference) ** .68, 0, 1)
+    # Use the actual song-wide maximum, not a percentile followed by clipping.
+    # A percentile ceiling flattened the strongest bins into a visible shelf.
+    reference = max(float(np.max(energies)), 1e-7)
+    energies = (energies / reference) ** .68 * .95
     for i in range(1, nframes):
         drop = .79
         energies[i] = np.maximum(energies[i], energies[i-1] * drop)
@@ -236,7 +239,7 @@ class Renderer:
         for k in range(bandcount):
             idx = int(k / max(1,bandcount-1)*(s.bars-1))
             amp = float(energy[idx])
-            height = max(1.0, (amp*s.sensitivity)**.9*maxbar)
+            height = max(1.0, (amp*s.spectrum_gain)**.9*maxbar)
             xoff=(k+.5)*bw
             barw=max(1, round(bw*.58))
             for sign in (-1,1):

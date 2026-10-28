@@ -5,19 +5,19 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
-    'audio':'', 'background':'', 'title':'', 'dust':130, 'reactive':25,
+    'completion_sound':True, 'preview_sound':True, 'audio':'', 'background':'', 'title':'', 'dust':130, 'reactive':25,
     'sensitivity':1.0, 'fps':60, 'bands':384, 'res':'1920 x 1080',
     'title_size':2.0, 'title_x':50.0, 'title_y':79.0, 'title_font':'Sans',
     'title_bold':False, 'title_italic':False, 'title_uppercase':False,
     'title_color':'#f8f9fd', 'spectrum_width':82.0, 'spectrum_x':50.0,
-    'spectrum_y':90.6, 'spectrum_height':6.8, 'particle_speed':1.0,
+    'spectrum_y':90.6, 'spectrum_height':6.8, 'particle_speed':1.0, 'spectrum_gain':1.0,
 }
 # Artist is a separate text row with its own appearance and position.
 for key in ('size','x','y','font','bold','italic','uppercase','color'):
     DEFAULTS['artist_'+key]=DEFAULTS['title_'+key]
 DEFAULTS.update(artist='',artist_size=1.5,artist_y=82.5)
 
-RANGES = {'particle_speed':(.1,5),'dust':(0,800),'reactive':(0,100),'sensitivity':(.1,3),
+RANGES = {'spectrum_gain':(.1,3),'particle_speed':(.1,5),'dust':(0,800),'reactive':(0,100),'sensitivity':(.1,3),
           'title_size':(.5,12),'title_x':(0,100),'title_y':(0,100),
           'spectrum_width':(10,100),'spectrum_x':(0,100),'spectrum_y':(0,100),
           'spectrum_height':(1,30)}
@@ -33,7 +33,7 @@ def validate_settings(values):
     if not isinstance(values,dict):raise ValueError('Project settings must be an object.')
     result=dict(DEFAULTS)
     for key,default in DEFAULTS.items():
-        value=values.get(key,default)
+        value=values.get(key,values.get('sensitivity',default) if key=='spectrum_gain' else default)
         if isinstance(default,bool):valid=isinstance(value,bool)
         elif isinstance(default,(int,float)):
             valid=isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value)

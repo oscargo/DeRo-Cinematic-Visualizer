@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.14 — Particle Motion
+# DeRo Cinematic Visualizer v0.1.15 — Sound, Peaks & Alerts
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -10,7 +10,7 @@ A standalone, reusable Python 3.12 music visualizer. It renders cinematic floati
 5. Defaults: 1920×1080 / 60 FPS. 30 FPS and smaller resolutions are selectable.
 
 **Current limitations:**
-- The animation preview is **silent**. It is not synchronized audio monitoring; exported MP4 *does* include music.
+- Preview sound is optional: use **Sound on** beside the playback timeline. MP4 exports include music regardless of this preview toggle.
 - Background supports **still images or built-in navy gradient only**, not background video yet. Adding video compositing later should preserve the renderer API.
 - MP4 encoding uses CPU libx264, not GPU NVENC. Full-length 1080p60 can be slow.
 - The exported visualization is a best-effort aesthetic interpretation, **not a pixel-perfect recreation of the reference clip**.
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.15`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.16`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_14_Particle_Motion.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_15_Sound_Peaks_and_Alerts.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,6 +166,40 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_14_Particle_Motion**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_15_Sound_Peaks_and_Alerts**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
+
+## v0.1.15 — Sound Preview
+Preview music now plays in stereo. Use **Sound on** beside the playback timeline to
+toggle sound without stopping or restarting playback. Sound is on by default and
+the toggle is saved with each project. Seeking, selection playback, looping, Pause,
+and Play from Start control both audio and visuals. Playback follows the audio device
+clock when sound is active. Muting preview does not remove audio from exported MP4s.
+
+Run `Launch_DeRo_Visualizer.bat` after extracting the complete folder. It installs
+`sounddevice` when needed; Windows wheels include PortAudio. Linux users also need
+the system PortAudio library (for example, `libportaudio2` on Debian/Ubuntu).
+If no output device is available, the app reports the problem and permits visual-only
+playback. Sound tests exercised audio callbacks and desktop controls; physical
+speaker playback was not verified in the cloud environment.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_15_Sound_Peaks_and_Alerts.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_15_Sound_Peaks_and_Alerts.zip)
+
+### Natural peaks and independent spectrum sensitivity
+Removed the old percentile ceiling that flattened strong spectrum peaks. Analysis
+now scales against the actual song-wide maximum with headroom, preserving peak
+differences. Click Refresh Preview after upgrading to reanalyze the song, then
+export again; existing rendered videos are not altered.
+
+Under **Spectrum**, set **Spectrum sensitivity (x)** from 0.1 to 3.0.
+**Lower = 0.5**, **Normal = 1.0**, **Higher = 1.5**. Lower settings give shorter bars.
+This updates the preview immediately and is independent of Particle response.
+Older projects inherit their previous sensitivity value for spectrum response.
+
+### Export completion notification
+Successful exports show a green **Export complete** heading and the output filename
+in the top notification area, with a gentle completion tone. Windows uses the
+system Asterisk sound asynchronously. **Export completion tone** in Output toggles
+this independently of preview sound. Failed exports never play the success tone.
+The notification does not change your existing automatic-open behavior.

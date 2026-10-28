@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.15 — Sound, Peaks & Alerts
+
+- Removed the hard spectrum ceiling that flattened strong peaks.
+- Added independent Spectrum sensitivity with Lower/Normal/Higher buttons.
+- Added top-area export completion notification and an independently switchable pleasant tone.
+- Added stereo preview playback with a Sound on toggle beside the timeline.
+- Synchronize preview visuals to the audio playback clock.
+- Support seeking, selection loops, pause, and muting without stopping playback.
+- Save the preview sound toggle with the project; exported audio is unaffected.
+- Update the Windows launcher to install sounddevice for preview playback.
+
 ## v0.1.14 — Particle Motion
 
 - Added a 0.1–5× particle speed control, live preview updates, and project persistence.

@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 from PIL import ImageChops
 from project_io import DEFAULTS, load_project, save_project, validate_settings
-from visualizer_core import Renderer, Settings
+from visualizer_core import Renderer, Settings, audio_features
 
 
 class ProjectTests(unittest.TestCase):
@@ -37,6 +37,28 @@ class ProjectTests(unittest.TestCase):
             path=Path(tmp)/'speed.dero'
             save_project(path,dict(DEFAULTS,particle_speed=2.5))
             self.assertEqual(load_project(path)[0]['particle_speed'],2.5)
+
+    def test_strong_spectrum_peaks_keep_their_relative_shape(self):
+        rate=22050
+        t=np.arange(rate)/rate
+        samples=(.9*np.sin(2*np.pi*440*t)+.75*np.sin(2*np.pi*880*t)+.15*np.sin(2*np.pi*1760*t))
+        features=audio_features(samples,rate,10,96)
+        self.assertTrue(np.isfinite(features).all())
+        self.assertLess(float(features.max()),.99)
+        strongest=np.sort(features[5])[-2:]
+        self.assertGreater(float(strongest[1]-strongest[0]),.01)
+        quiet=audio_features(np.zeros(rate),rate,10,96)
+        self.assertEqual(float(quiet.max()),0.)
+
+    def test_spectrum_sensitivity_is_independent_of_particles(self):
+        features=np.ones((20,32),np.float32)*.5
+        normal=Renderer(Settings(width=320,height=180,title='',dust_count=3,bars=32,spectrum_gain=1),features)
+        lower=Renderer(Settings(width=320,height=180,title='',dust_count=3,bars=32,spectrum_gain=.5),features)
+        np.testing.assert_array_equal(normal.trajectories,lower.trajectories)
+        self.assertIsNotNone(ImageChops.difference(normal.render(0),lower.render(0)).getbbox())
+        old=dict(DEFAULTS,sensitivity=2.)
+        old.pop('spectrum_gain')
+        self.assertEqual(validate_settings(old)['spectrum_gain'],2.)
 
     def test_invalid_project_data(self):
         for changes in ({'spectrum_width':101},{'title_x':float('nan')},{'fps':24},

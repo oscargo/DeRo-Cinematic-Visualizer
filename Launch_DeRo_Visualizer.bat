@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title DeRo Cinematic Visualizer v0.1.14 - Particle Motion
+title DeRo Cinematic Visualizer v0.1.15 - Sound Peaks and Alerts
 
 rem Find FFmpeg without requiring any Windows PATH changes.
 set "FFMPEG_DIR="
@@ -35,7 +35,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-py -3.12 -c "import numpy, PIL" >nul 2>&1
+py -3.12 -c "import numpy, PIL, sounddevice" >nul 2>&1
 if errorlevel 1 (
   echo Installing Python 3.12 dependencies...
   py -3.12 -m pip install -r requirements.txt

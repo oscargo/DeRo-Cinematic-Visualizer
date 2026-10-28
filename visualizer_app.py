@@ -1,7 +1,7 @@
-"""DeRo Cinematic Visualizer v0.1.14 — Particle Motion.
+"""DeRo Cinematic Visualizer v0.1.15 — Sound, Peaks & Alerts.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
-and click-to-play timeline navigation. Preview is silent; exports include audio.
+and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
 Renderer and exporter are independent of Tkinter.
 """
 import os
@@ -18,12 +18,14 @@ from PIL import Image, ImageTk
 from visualizer_core import Settings, Renderer, audio_features
 from audio_io import load_audio, read_metadata, suggested_name
 from export_video import export
+from preview_audio import PreviewAudio, decode_preview
+from notifications import completion_tone
 from project_io import DEFAULTS, validate_settings, save_project, load_project
 
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.14 - Particle Motion')
+        self.root.title('DeRo Cinematic Visualizer v0.1.15 - Sound, Peaks & Alerts')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -58,14 +60,18 @@ class Application:
         self.playing=False
         self.last_export_path=None
         self.last_export_folder=self.folder_preferences.get('export', '')
+        self.sound_enabled=self.preview_sound
+        self.preview_player=PreviewAudio()
+        self.preview_audio=None
         self.t0=0.0
         self.build()
         self.saved_project_state=self.project_state()
         self.root.protocol('WM_DELETE_WINDOW',self.close_project)
         for key in ('title','title_size','title_x','title_y','title_font','title_bold','title_italic',
                     'title_uppercase','title_color','artist','artist_size','artist_x','artist_y','artist_font',
-                    'artist_bold','artist_italic','artist_uppercase','artist_color','particle_speed','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
+                    'artist_bold','artist_italic','artist_uppercase','artist_color','particle_speed','spectrum_gain','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
             self.project_vars[key].trace_add('write',self.schedule_layout_preview)
+        self.sound_enabled.trace_add('write',lambda *args:setattr(self.preview_player,'muted',not self.sound_enabled.get()))
         self.title.trace_add('write',lambda *args:self.update_project_title())
         self.artist.trace_add('write',lambda *args:self.update_project_title())
         self.update_project_title()
@@ -116,6 +122,7 @@ class Application:
         style.configure('Horizontal.TProgressbar',background='#82b8f9',troughcolor='#1c2b41',borderwidth=0)
         style.configure('TCheckbutton',background='#101827',foreground='#e5ebf5',padding=2)
         style.map('TCheckbutton',background=[('active','#192538')])
+        style.configure('Success.TLabel',background='#101827',foreground='#80e0bc',font=(self.ui_font,10,'bold'))
         style.configure('TSeparator',background='#263247')
 
     def build(self):
@@ -139,19 +146,20 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='PARTICLE MOTION  /  v0.1.14',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='SOUND, PEAKS & ALERTS  /  v0.1.15',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
             ttk.Button(project_buttons,text=label,command=command,padding=(10,7)).pack(side='left',padx=(4,0))
         export_status=ttk.Frame(header,padding=(10,8))
         export_status.grid(row=0,column=1,sticky='ew')
-        ttk.Label(export_status,text='Export status',style='Section.TLabel').pack(anchor='w')
+        self.notification_heading=ttk.Label(export_status,text='Export status',style='Section.TLabel')
+        self.notification_heading.pack(anchor='w')
         self.progress=ttk.Progressbar(export_status,maximum=100,mode='determinate',length=100)
         self.progress.pack(fill='x',pady=(6,4))
         self.status_label=ttk.Label(export_status,textvariable=self.status,style='Muted.TLabel',width=1,anchor='w')
         self.status_label.pack(fill='x')
-        ttk.Label(export_status,text='Preview is silent / Export includes music',style='Muted.TLabel').pack(anchor='w',pady=(3,0))
+        ttk.Label(export_status,text='Preview sound is switchable / Export includes music',style='Muted.TLabel').pack(anchor='w',pady=(3,0))
         body=tk.PanedWindow(shell,orient='horizontal',background='#263b57',borderwidth=0,
                             sashwidth=12,sashpad=3,showhandle=True,handlesize=24,opaqueresize=True)
         body.pack(fill='both',expand=True)
@@ -225,6 +233,11 @@ class Application:
         arrows('artist')
         ttk.Button(controls,text='Reset artist layout',command=lambda:self.reset_layout('artist')).pack(fill='x',pady=(7,0))
         section('03  /  SPECTRUM')
+        numeric('Spectrum sensitivity (x)',self.spectrum_gain,.1,3,.1)
+        ttk.Label(controls,text='Lower = shorter bars',style='Muted.TLabel').pack(anchor='w',pady=(5,0))
+        gain_buttons=ttk.Frame(controls);gain_buttons.pack(fill='x',pady=(7,0))
+        for label,value in (('Lower',.5),('Normal',1.),('Higher',1.5)):
+            ttk.Button(gain_buttons,text=label,width=6,command=lambda v=value:self.spectrum_gain.set(v)).pack(side='left',fill='x',expand=True,padx=1)
         numeric('Width (%)',self.spectrum_width,10,100)
         width_buttons=ttk.Frame(controls);width_buttons.pack(fill='x',pady=(7,0))
         ttk.Button(width_buttons,text='< Narrower',command=lambda:self.change_width(-2)).pack(side='left',fill='x',expand=True)
@@ -237,7 +250,7 @@ class Application:
         section('04  /  ATMOSPHERE')
         numeric('Particle speed (x)',self.particle_speed,.1,5,.1)
         for label,var,low,high,step in (('Dust particles',self.dust,0,800,1),
-                ('Reactive particles (%)',self.reactive,0,100,1),('Sensitivity',self.sensitivity,.1,3,.1)):
+                ('Reactive particles (%)',self.reactive,0,100,1),('Particle response (x)',self.sensitivity,.1,3,.1)):
             row=ttk.Frame(controls);row.pack(fill='x',pady=(12,0))
             ttk.Label(row,text=label,style='Muted.TLabel').pack(side='left')
             ttk.Spinbox(row,from_=low,to=high,increment=step,textvariable=var,width=6).pack(side='right')
@@ -245,6 +258,7 @@ class Application:
         section('05  /  OUTPUT')
         field('Resolution',self.res,('1920 x 1080','1280 x 720','854 x 480'))
         field('Frames per second',self.fps,(60,30))
+        ttk.Checkbutton(controls,text='Export completion tone',variable=self.completion_sound).pack(anchor='w',pady=(10,0))
         ttk.Button(controls,text='Quick test / 480p / 30 FPS',command=self.quick_test_preset).pack(fill='x',pady=(10,0))
 
         workspace=ttk.Frame(body,style='Shell.TFrame');body.add(workspace,minsize=620,stretch='always')
@@ -267,7 +281,7 @@ class Application:
         self.scrub.pack(side='left',fill='x',expand=True,padx=12)
         self.scrub.bind('<Button-1>',self.timeline_click)
         self.scrub.bind('<B1-Motion>',self.timeline_click)
-        ttk.Label(transport,text='SILENT PREVIEW',style='Section.TLabel').pack(side='right')
+        ttk.Checkbutton(transport,text='Sound on',variable=self.sound_enabled,command=self.toggle_sound).pack(side='right')
 
         selection=ttk.Frame(workspace,padding=(16,12));selection.grid(row=1,column=0,sticky='ew',pady=(12,0))
         heading=ttk.Frame(selection);heading.pack(fill='x')
@@ -306,7 +320,7 @@ class Application:
         try:
             values=validate_settings({key:var.get() for key,var in self.project_vars.items()})
             for key in ('title','title_font','title_bold','title_italic','title_uppercase','title_color',
-                        'artist','artist_font','artist_bold','artist_italic','artist_uppercase','artist_color'):
+                        'artist','artist_font','artist_bold','artist_italic','artist_uppercase','artist_color','spectrum_gain'):
                 setattr(self.renderer.s,key,values[key])
             for key in ('title_size','title_x','title_y','artist_size','artist_x','artist_y','spectrum_width','spectrum_x','spectrum_y','spectrum_height'):
                 setattr(self.renderer.s,key,values[key]/100)
@@ -358,10 +372,12 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.14 - Particle Motion')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.15 - Sound, Peaks & Alerts')
 
     def clear_media(self):
         self.pause()
+        self.preview_player.load(None)
+        self.preview_audio=None
         self.samples=None;self.features=None;self.renderer=None;self.preview_frame=None
         self.loaded_audio_path=None;self.length=0;self.position.set(0)
         self.selection_start.set(0);self.selection_end.set(0)
@@ -371,6 +387,7 @@ class Application:
         self.canvas.configure(image='',text='YOUR NEXT VISUAL STARTS HERE\n\nChoose music to bring this scene to life.')
         self.update_selection()
         self.last_export_path=None
+        self.notification_heading.configure(text='Export status',style='Section.TLabel')
 
     def new_project(self):
         if not self.confirm_replace():return
@@ -422,7 +439,9 @@ class Application:
         else:self.status.set('Project opened. Choose music to preview.')
 
     def close_project(self):
-        if self.confirm_replace():self.root.destroy()
+        if self.confirm_replace():
+            self.pause()
+            self.root.destroy()
 
     def quick_test_preset(self):
         self.res.set('854 x 480')
@@ -513,7 +532,7 @@ class Application:
             title_x=self.title_x.get()/100,title_y=self.title_y.get()/100,title_font=self.title_font.get(),
             title_bold=self.title_bold.get(),title_italic=self.title_italic.get(),
             title_uppercase=self.title_uppercase.get(),title_color=self.title_color.get(),
-            particle_speed=self.particle_speed.get(),artist=self.artist.get(),artist_size=self.artist_size.get()/100,
+            spectrum_gain=self.spectrum_gain.get(),particle_speed=self.particle_speed.get(),artist=self.artist.get(),artist_size=self.artist_size.get()/100,
             artist_x=self.artist_x.get()/100,artist_y=self.artist_y.get()/100,
             artist_font=self.artist_font.get(),artist_bold=self.artist_bold.get(),
             artist_italic=self.artist_italic.get(),artist_uppercase=self.artist_uppercase.get(),
@@ -529,6 +548,7 @@ class Application:
             settings=self.settings(preview=True)
         except (ValueError,tk.TclError) as exc:
             self.status.set(str(exc));return
+        self.pause()
         self.busy=True;self.status.set('Analyzing music frequencies...')
         def worker():
             try:
@@ -536,10 +556,13 @@ class Application:
                     self.q.put(('metadata',(path,read_metadata(path))))
                 if self.samples is None or path != self.loaded_audio_path:
                     samples,sr=load_audio(path)
-                else:samples,sr=self.samples
+                    playback=decode_preview(path)
+                else:
+                    samples,sr=self.samples
+                    playback=self.preview_audio
                 features=audio_features(samples,sr,settings.fps,settings.bars)
                 renderer=Renderer(settings,features)
-                self.q.put(('ready',(samples,sr,features,renderer,path)))
+                self.q.put(('ready',(samples,sr,features,renderer,path,playback)))
             except Exception as exc:self.q.put(('error',str(exc)))
         threading.Thread(target=worker,daemon=True).start()
 
@@ -608,7 +631,28 @@ class Application:
             self.update_selection()
         except (ValueError,tk.TclError) as exc:self.status.set(str(exc))
 
+    def toggle_sound(self):
+        self.preview_player.muted=not self.sound_enabled.get()
+        if self.playing and self.preview_player.stream is None and self.sound_enabled.get():
+            self.sync_preview_audio()
+
+    def sync_preview_audio(self):
+        self.preview_player.muted=not self.sound_enabled.get()
+        # An unavailable device must not prevent visual-only preview.
+        if self.preview_player.samples is None:return
+        if not self.sound_enabled.get() and self.preview_player.stream is None:return
+        try:
+            end=self.selection_end.get() if self.play_selection else self.length
+            self.preview_player.play(self.position.get(),end,self.loop_selection,
+                                     loop_start=self.selection_start.get() if self.play_selection else 0)
+        except Exception as exc:
+            self.sound_enabled.set(False)
+            self.status.set('Preview sound unavailable: '+str(exc)+'. Visual playback remains available.')
+
     def pause(self):
+        if self.playing and self.preview_player.stream is not None:
+            self.position.set(self.preview_player.position())
+        self.preview_player.stop()
         self.playing=False
 
     def start_playback(self,selection=False,loop=False):
@@ -623,6 +667,7 @@ class Application:
         self.position.set(start)
         self.t0=time.monotonic()-start
         self.playing=True
+        self.sync_preview_audio()
         if not already_playing:self.animate()
 
     def timeline_click(self,event):
@@ -639,6 +684,7 @@ class Application:
         self.t0=time.monotonic()-seconds
         self.display_frame()
         self.playing=True
+        self.sync_preview_audio()
         if not already_playing:self.animate()
         return 'break'
 
@@ -648,6 +694,7 @@ class Application:
         self.play_selection=False;self.loop_selection=False
         self.t0=time.monotonic()-self.position.get()
         self.playing=True
+        self.sync_preview_audio()
         self.animate()
 
     def animate(self):
@@ -655,8 +702,13 @@ class Application:
         try:
             start,end=self.selection_bounds() if self.play_selection else (0,self.length)
         except (ValueError,tk.TclError):self.pause();return
-        t=time.monotonic()-self.t0
-        if t>=end:
+        if self.preview_player.stream is not None and self.play_selection:
+            player=self.preview_player
+            if player.start_frame!=round(start*player.rate) or player.end_frame!=min(len(player.samples),round(end*player.rate)):
+                if not start<=self.position.get()<end:self.position.set(start)
+                self.sync_preview_audio()
+        t=self.preview_player.position() if self.preview_player.stream is not None else time.monotonic()-self.t0
+        if t>=end-1/22050:
             if self.loop_selection:
                 t=start+(t-start)%(end-start)
                 self.t0=time.monotonic()-t
@@ -723,6 +775,8 @@ class Application:
         if os.path.abspath(out)==os.path.abspath(self.audio.get()):return messagebox.showerror('Invalid path','Export path must differ from input.')
         self.pause()
         self.busy=True
+        self.notification_heading.configure(text='Exporting video',style='Section.TLabel')
+        self.progress['value']=0
         self.status.set('Exporting video. High-resolution rendering may be slow.')
         def worker():
             try:
@@ -745,7 +799,9 @@ class Application:
                         self.artist.set(tags['artist'])
                         self.metadata_pending_path=None
                 elif kind=='ready':
-                    samples,sr,features,renderer,path=data
+                    samples,sr,features,renderer,path,playback=data
+                    self.preview_audio=playback
+                    self.preview_player.load(playback)
                     self.samples=samples,sr
                     self.features=features;self.renderer=renderer
                     self.length=len(samples)/sr
@@ -768,6 +824,7 @@ class Application:
                     self.display_frame()
                 elif kind=='error':
                     self.busy=False
+                    self.notification_heading.configure(text='Action failed',style='Section.TLabel')
                     self.status.set('Error: '+data)
                     messagebox.showerror('Visualizer',data)
                 elif kind=='progress':
@@ -775,7 +832,9 @@ class Application:
                     self.status.set(f'Exporting MP4: {i/n*100:.1f}% ({i}/{n} frames)')
                 elif kind=='finished':
                     self.busy=False;self.progress['value']=100
-                    self.status.set('Export completed: '+data)
+                    self.notification_heading.configure(text='Export complete',style='Success.TLabel')
+                    self.status.set('Saved: '+os.path.basename(data))
+                    if self.completion_sound.get():completion_tone()
                     self.last_export_path=os.path.abspath(data)
                     try:
                         self._open_path(self.last_export_path)
