@@ -60,6 +60,19 @@ class ProjectTests(unittest.TestCase):
         old.pop('spectrum_gain')
         self.assertEqual(validate_settings(old)['spectrum_gain'],2.)
 
+    def test_particle_speed_supports_30x_and_rejects_higher(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'fast.dero'
+            save_project(path,dict(DEFAULTS,particle_speed=30.))
+            self.assertEqual(load_project(path)[0]['particle_speed'],30.)
+        with self.assertRaises(ValueError):validate_settings(dict(DEFAULTS,particle_speed=30.1))
+        features=np.zeros((60,32),np.float32)
+        normal=Renderer(Settings(bars=32,dust_count=3,particle_speed=1),features)
+        fast=Renderer(Settings(bars=32,dust_count=3,particle_speed=30),features)
+        origin=np.array([[p['x'],p['y']] for p in normal.particles])
+        np.testing.assert_allclose(fast.trajectories[-1]-origin,
+                                   30*(normal.trajectories[-1]-origin),atol=3e-6)
+
     def test_invalid_project_data(self):
         for changes in ({'spectrum_width':101},{'title_x':float('nan')},{'fps':24},
                         {'title_color':'bad'},{'title_bold':'yes'},{'dust':3.2}):

@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.19 — Project Folder Memory.
+"""DeRo Cinematic Visualizer v0.1.20 — Particle Speed 30x.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -25,7 +25,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.19 - Project Folder Memory')
+        self.root.title('DeRo Cinematic Visualizer v0.1.20 - Particle Speed 30x')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -166,7 +166,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='PROJECT FOLDER MEMORY  /  v0.1.19',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='PARTICLE SPEED 30X  /  v0.1.20',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -289,12 +289,13 @@ class Application:
         field('Direction',self.particle_direction,('Out','Left','Right','Up','Down'))
         ttk.Checkbutton(controls,text='React to music',style='Switch.TCheckbutton',variable=self.particle_reactive).pack(anchor='w',pady=8)
         ttk.Button(controls,text='Particle color...',command=lambda:self.choose_element_color('particle_color')).pack(fill='x')
-        numeric('Particle speed (x)',self.particle_speed,.1,5,.1)
+        numeric('Particle speed (x)',self.particle_speed,.1,30,.1)
         for label,var,low,high,step in (('Dust particles',self.dust,0,800,1),
                 ('Reactive particles (%)',self.reactive,0,100,1),('Particle response (x)',self.sensitivity,.1,3,.1)):
             row=ttk.Frame(controls);row.pack(fill='x',pady=(12,0))
             ttk.Label(row,text=label,style='Muted.TLabel',wraplength=145).pack(side='left')
             ttk.Spinbox(row,from_=low,to=high,increment=step,textvariable=var,width=6).pack(side='right')
+        ttk.Button(controls,text='What do these controls do?',command=self.explain_particles).pack(fill='x',pady=(12,0))
         ttk.Separator(controls).pack(fill='x',pady=18)
         ttk.Label(controls,text='IMAGE / LOGO',style='Section.TLabel').pack(anchor='w',pady=(0,8))
         ttk.Button(controls,text='+ Add image...',style='Image.TButton',command=self.browse_overlay).pack(fill='x')
@@ -365,6 +366,17 @@ class Application:
                 ('Play from start',lambda:self.start_playback(False)))):
             buttons.columnconfigure(i%3,weight=1)
             ttk.Button(buttons,text=label,command=cmd).grid(row=i//3,column=i%3,sticky='ew',padx=(0,6),pady=3)
+
+    def explain_particles(self):
+        messagebox.showinfo('Particle controls',
+            'Particle speed (0.1–30x): multiplies how fast every particle moves. '
+            '1x is the original speed; 10x is ten times faster.\n\n'
+            'Dust particles (0–800): number of particles that start in the scene.\n\n'
+            'Reactive particles (0–100%): approximate share that reacts to music; '
+            'the rest drift normally.\n\n'
+            'Particle response (0.1–3x): strength of beat-driven movement, size, '
+            'and brightness for the reactive particles. React to music must be on.\n\n'
+            'Particles do not wrap or recycle. Higher speeds make them leave the frame sooner.',parent=self.root)
 
     def show_inspector(self,name):
         for key,page in self.inspector_pages.items():
@@ -468,7 +480,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.19 - Project Folder Memory')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.20 - Particle Speed 30x')
 
     def clear_media(self):
         self.pause()
@@ -569,7 +581,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Project Folder Memory')
+        window.title('DeRo / Particle Speed 30x')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)

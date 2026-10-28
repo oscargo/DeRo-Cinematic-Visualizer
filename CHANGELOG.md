@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.20 — Particle Speed 30x
+
+- Increased the particle speed limit to 30x in the UI and project validation.
+- Added explanations for particle controls in the Elements panel.
+- Verified 30x motion and saved-project compatibility; retain the 1x default.
+
 ## v0.1.19 — Project Folder Memory
 
 - Remember the project folder across restarts for Open, Save, and Save As.

@@ -21,7 +21,7 @@ for key in ('size','x','y','font','bold','italic','uppercase','color'):
     DEFAULTS['artist_'+key]=DEFAULTS['title_'+key]
 DEFAULTS.update(artist='',artist_size=1.5,artist_y=82.5)
 
-RANGES = {'overlay_size':(1,100),'overlay_x':(0,100),'overlay_y':(0,100),'overlay_opacity':(0,100),'spectrum_gain':(.1,3),'particle_speed':(.1,5),'dust':(0,800),'reactive':(0,100),'sensitivity':(.1,3),
+RANGES = {'overlay_size':(1,100),'overlay_x':(0,100),'overlay_y':(0,100),'overlay_opacity':(0,100),'spectrum_gain':(.1,3),'particle_speed':(.1,30),'dust':(0,800),'reactive':(0,100),'sensitivity':(.1,3),
           'title_size':(.5,12),'title_x':(0,100),'title_y':(0,100),
           'spectrum_width':(10,100),'spectrum_x':(0,100),'spectrum_y':(0,100),
           'spectrum_height':(1,30)}

@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.19 — Project Folder Memory
+# DeRo Cinematic Visualizer v0.1.20 — Particle Speed 30x
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.20`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.21`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_19_Project_Folder_Memory.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_20_Particle_Speed_30x.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_19_Project_Folder_Memory**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_20_Particle_Speed_30x**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -265,3 +265,12 @@ bands share FFT bins, so a larger bar count does not guarantee more independent
 frequency measurements. Available band counts: 32, 64, 96, 128, 192, 256, 384, 512.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_19_Project_Folder_Memory.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_19_Project_Folder_Memory.zip)
+
+## v0.1.20 — Particle Speed 30x
+Particle speed now accepts **0.1–30x** in the UI, projects, preview, and exports.
+The 1x default and all other settings are preserved. In Elements, click
+**What do these controls do?** for explanations of speed, dust count, reactive
+percentage, and particle response. Faster particles leave the frame sooner,
+without wrapping or recycling.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_20_Particle_Speed_30x.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_20_Particle_Speed_30x.zip)
