@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.16 — Slim Window Resize.
+"""DeRo Cinematic Visualizer v0.1.17 — Fullscreen Preview.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -25,12 +25,14 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.16 - Slim Window Resize')
+        self.root.title('DeRo Cinematic Visualizer v0.1.17 - Fullscreen Preview')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
         self.preview_frame=None
         self.preview_resize_job=None
+        self.fullscreen_window=None
+        self.fullscreen_canvas=None
         self.folder_preferences = self._load_folder_preferences()
         self.project_vars={}
         for key,value in DEFAULTS.items():
@@ -146,7 +148,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='SLIM WINDOW RESIZE  /  v0.1.16',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='FULLSCREEN PREVIEW  /  v0.1.17',style='Badge.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -270,6 +272,8 @@ class Application:
         ttk.Label(toolbar,text='Scene preview',style='Heading.TLabel').pack(side='left')
         ttk.Button(toolbar,text='Save PNG',command=self.save_preview).pack(side='right')
         ttk.Button(toolbar,text='Refresh preview',command=self.prepare_preview).pack(side='right',padx=8)
+        ttk.Button(toolbar,text='Fullscreen',command=self.open_fullscreen_preview).pack(side='right')
+        self.root.bind('<F11>',lambda event:self.open_fullscreen_preview())
         viewport=ttk.Frame(preview);viewport.grid(row=1,column=0,sticky='nsew')
         viewport.pack_propagate(False)
         self.canvas=tk.Label(viewport,text='YOUR NEXT VISUAL STARTS HERE\n\nChoose music to bring this scene to life.',
@@ -373,7 +377,7 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.16 - Slim Window Resize')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.17 - Fullscreen Preview')
 
     def clear_media(self):
         self.pause()
@@ -386,6 +390,8 @@ class Application:
         self.metadata_pending_path=None
         self.scrub.configure(to=0);self.progress['value']=0
         self.canvas.configure(image='',text='YOUR NEXT VISUAL STARTS HERE\n\nChoose music to bring this scene to life.')
+        if self.fullscreen_canvas is not None:
+            self.fullscreen_canvas.configure(image='',text='Choose music to preview.')
         self.update_selection()
         self.last_export_path=None
         self.notification_heading.configure(text='Export status',style='Section.TLabel')
@@ -442,6 +448,7 @@ class Application:
     def close_project(self):
         if self.confirm_replace():
             self.pause()
+            self.close_fullscreen_preview()
             self.root.destroy()
 
     def quick_test_preset(self):
@@ -460,6 +467,49 @@ class Application:
         frame.thumbnail((max(1,self.canvas.winfo_width()-8),max(1,self.canvas.winfo_height()-8)),Image.Resampling.LANCZOS)
         self.photo=ImageTk.PhotoImage(frame)
         self.canvas.configure(image=self.photo,text='')
+        self.fit_fullscreen_preview()
+
+    def open_fullscreen_preview(self):
+        if self.fullscreen_window is not None:
+            self.fullscreen_window.lift()
+            self.fullscreen_window.focus_set()
+            return
+        window=tk.Toplevel(self.root)
+        self.fullscreen_window=window
+        window.title('DeRo / Fullscreen Preview')
+        window.configure(background='black')
+        window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
+        window.attributes('-fullscreen',True)
+        self.fullscreen_canvas=tk.Label(window,background='black',foreground='#dce8fb',
+            text='Choose music to preview.',borderwidth=0)
+        self.fullscreen_canvas.pack(fill='both',expand=True)
+        self.fullscreen_canvas.bind('<Configure>',lambda event:self.fit_fullscreen_preview())
+        ttk.Button(window,text='Exit fullscreen / Esc',command=self.close_fullscreen_preview).place(relx=1,x=-18,y=18,anchor='ne')
+        ttk.Label(window,text='Space: Play / Pause   |   Esc: Exit fullscreen',style='Badge.TLabel').place(relx=.5,rely=1,y=-18,anchor='s')
+        window.bind('<Escape>',lambda event:self.close_fullscreen_preview())
+        window.bind('<F11>',lambda event:self.close_fullscreen_preview())
+        window.bind('<space>',lambda event:self.toggle_play())
+        window.protocol('WM_DELETE_WINDOW',self.close_fullscreen_preview)
+        window.focus_set()
+        window.after_idle(self.fit_fullscreen_preview)
+
+    def fit_fullscreen_preview(self):
+        target=self.fullscreen_canvas
+        if target is None or self.preview_frame is None:return
+        image=self.preview_frame
+        scale=min(max(1,target.winfo_width())/image.width,max(1,target.winfo_height())/image.height)
+        image=image.resize((max(1,round(image.width*scale)),max(1,round(image.height*scale))),Image.Resampling.LANCZOS)
+        self.fullscreen_photo=ImageTk.PhotoImage(image)
+        target.configure(image=self.fullscreen_photo,text='')
+
+    def close_fullscreen_preview(self):
+        window=self.fullscreen_window
+        self.fullscreen_window=None
+        self.fullscreen_canvas=None
+        self.fullscreen_photo=None
+        if window is not None:
+            window.destroy()
+            self.root.focus_set()
 
     @staticmethod
     def _preferences_file():

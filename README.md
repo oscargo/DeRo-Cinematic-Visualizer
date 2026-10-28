@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.16 — Slim Window Resize
+# DeRo Cinematic Visualizer v0.1.17 — Fullscreen Preview
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.17`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.18`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_16_Slim_Window_Resize.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_17_Fullscreen_Preview.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_16_Slim_Window_Resize**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_17_Fullscreen_Preview**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -211,3 +211,12 @@ Resize the outer window normally using the native window borders or maximize but
 Composition settings, preview sound, export alerts, and rendering are unchanged.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_16_Slim_Window_Resize.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_16_Slim_Window_Resize.zip)
+
+## v0.1.17 — Fullscreen Preview
+Click **Fullscreen** in the Scene preview toolbar, or press **F11**.
+The preview fills a separate fullscreen window with its aspect ratio preserved.
+Playback, sound, and the selected range continue using the existing transport.
+Press **Space** to play/pause and **Escape**, **F11**, or **Exit fullscreen** to return.
+The main workspace and composition settings stay intact.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_17_Fullscreen_Preview.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_17_Fullscreen_Preview.zip)

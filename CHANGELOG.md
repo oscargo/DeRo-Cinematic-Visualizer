@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.17 — Fullscreen Preview
+
+- Added a Fullscreen preview button and F11 shortcut.
+- Scale preview frames to fill the screen while preserving aspect ratio.
+- Exit with Escape, F11, or the onscreen button; Space toggles playback.
+- Preserve normal workspace layout and ongoing preview sound/playback.
+
 ## v0.1.16 — Slim Window Resize
 
 - Removed the oversized panel divider and square grip.
