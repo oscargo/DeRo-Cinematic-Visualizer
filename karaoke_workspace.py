@@ -1,4 +1,5 @@
 """Native Tkinter lyric editing, word synchronization and cinematic lyric design."""
+import importlib.util
 import copy
 import json
 import os
@@ -16,12 +17,14 @@ from lyric_model import LyricDocument,STYLE_DEFAULTS
 from lyric_render import exact_frame
 from export_control import ExportControl,ExportCancelled
 from preview_audio import PreviewAudio,decode_preview
+from favorite_sites_ui import FavoriteSitesUI
 
 
-class KaraokeWorkspace:
+class KaraokeWorkspace(FavoriteSitesUI):
     def init_karaoke(self):
         self.lyric_document=LyricDocument();self.lyric_undo=[];self.lyric_redo=[]
         self.saved_lyrics=self.lyric_document.snapshot();self.lyric_control=None
+        self.alignment_summary={};self.alignment_inspector={};self.favorite_sites_window=None
         self.lyric_queue=__import__('queue').Queue();self.lyric_generation=0
         self.lyric_message=tk.StringVar(value='Paste the exact lyrics, then align and review the timings.')
         self.word_start=tk.StringVar(value='0.000');self.word_end=tk.StringVar(value='0.500')
@@ -56,11 +59,11 @@ class KaraokeWorkspace:
         button(lyrics,'Import lyrics...',self.import_lyrics)
         button(lyrics,'Apply pasted lyrics',self.apply_lyrics)
         button(lyrics,'Save lyrics as text...',self.save_lyrics)
-        button(lyrics,'Auto-sync with WhisperX',self.start_alignment)
         button(lyrics,'Cancel alignment',self.cancel_alignment)
         button(lyrics,'Alignment setup...',self.alignment_setup)
         button(lyrics,'Review word timings',lambda:self.show_inspector('Word Sync'))
-        ttk.Label(lyrics,text='Your pasted lyrics remain the source of truth. Alignment changes timing only.',wraplength=230,style='Muted.TLabel').pack(anchor='w',pady=14)
+        button(lyrics,'Sync Inspector...',self.show_sync_inspector)
+        ttk.Label(lyrics,text='Your pasted lyrics remain the source of truth. Alignment changes timing only.',wraplength=200,style='Muted.TLabel').pack(anchor='w',pady=14)
         words=page('Word Sync')
         ttk.Checkbutton(words,text='Loop selected line',variable=self.monitor_loop).pack(anchor='w',pady=4)
         field(words,'Monitor audio',self.monitor_choice,('Vocals','Instrumental','Original mix'))
@@ -104,9 +107,21 @@ class KaraokeWorkspace:
         # Main editors share a single compact status footer.
         for name in ('Lyrics','Word Sync','Video Designer'):
             overlay=ttk.Frame(workspace,padding=14);self.karaoke_overlays[name]=overlay
-            ttk.Label(overlay,text=name,style='Heading.TLabel').pack(anchor='w',pady=(0,8))
+            ttk.Label(overlay,text='Authoritative lyrics' if name=='Lyrics' else name,style='Heading.TLabel').pack(anchor='w',pady=(0,8))
             ttk.Label(overlay,textvariable=self.lyric_message,style='Muted.TLabel',wraplength=600).pack(anchor='w',pady=(0,8))
         main=self.karaoke_overlays['Lyrics']
+        style=ttk.Style(self.root)
+        style.configure('LyricsAction.TButton',background='#7556df',foreground='#ffffff',font=(self.ui_font,10,'bold'))
+        style.map('LyricsAction.TButton',background=[('pressed','#6040c8'),('active','#896aef')],foreground=[('disabled','#c3badc')])
+        toolbar=ttk.Frame(main);toolbar.pack(fill='x',pady=(0,10))
+        self.favorite_sites_button=ttk.Button(toolbar,text='1  Favorite Lyrics Sites',style='LyricsAction.TButton',command=self.show_favorite_sites)
+        self.auto_sync_lyrics_button=ttk.Button(toolbar,text='2  Auto-sync pasted lyrics with WhisperX',style='LyricsAction.TButton',command=self.start_alignment)
+        def arrange_lyrics_buttons(event):
+            stacked=event.width<650
+            self.favorite_sites_button.grid(row=0,column=0,sticky='ew',padx=(0,0 if stacked else 6),pady=(0,6 if stacked else 0))
+            self.auto_sync_lyrics_button.grid(row=1 if stacked else 0,column=0 if stacked else 1,sticky='ew')
+            toolbar.columnconfigure(0,weight=1);toolbar.columnconfigure(1,weight=0 if stacked else 1)
+        toolbar.bind('<Configure>',arrange_lyrics_buttons)
         ttk.Label(main,text='Paste or import the complete lyrics, one sung line per row.').pack(anchor='w',pady=(0,8))
         frame=ttk.Frame(main);frame.pack(fill='both',expand=True)
         self.lyrics_editor=tk.Text(frame,wrap='word',undo=True,background='#080e19',foreground='#dbe8fa',insertbackground='white',font=('Segoe UI',12))
@@ -114,7 +129,7 @@ class KaraokeWorkspace:
         scroll.pack(side='right',fill='y');self.lyrics_editor.pack(fill='both',expand=True)
         self.lyrics_editor.bind('<<Modified>>',self.lyrics_text_modified)
         actions=ttk.Frame(main);actions.pack(fill='x',pady=(8,0))
-        for label,cmd in [('Apply lyrics',self.apply_lyrics),('Auto-sync',self.start_alignment),('Word Sync',lambda:self.show_inspector('Word Sync'))]:ttk.Button(actions,text=label,command=cmd).pack(side='left',padx=(0,6))
+        for label,cmd in [('Apply lyrics',self.apply_lyrics),('Word Sync',lambda:self.show_inspector('Word Sync'))]:ttk.Button(actions,text=label,command=cmd).pack(side='left',padx=(0,6))
         main=self.karaoke_overlays['Word Sync']
         self.line_tree=ttk.Treeview(main,columns=('time','state','text'),show='headings',height=7,selectmode='browse')
         for col,label,width in [('time','Start – end',130),('state','Review',90),('text','Exact lyric line',340)]:
@@ -153,13 +168,16 @@ class KaraokeWorkspace:
             if self.lyrics_editor.get('1.0','end-1c')!=self.lyric_document.text:self.lyric_message.set('Unapplied lyric edits. Apply them before alignment or export.')
 
     def reset_karaoke(self):
-        self.cancel_alignment();self.lyric_control=None;self.lyric_generation+=1;self.stop_monitor();self.monitor_generation+=1
+        self.cancel_alignment();self.set_alignment_running(False);self.lyric_control=None;self.lyric_generation+=1;self.stop_monitor();self.monitor_generation+=1
         self.monitor_player.load(None);self.monitor_path=None;self.waveform=None
         self.lyric_document=LyricDocument();self.lyric_undo=[];self.lyric_redo=[]
+        self.alignment_summary={};self.alignment_inspector={}
         self.refresh_lyrics()
 
     def refresh_lyrics(self):
         if not hasattr(self,'lyrics_editor'):return
+        self.alignment_summary=copy.deepcopy(self.lyric_document.data['alignment_summary'])
+        self.alignment_inspector=copy.deepcopy(self.lyric_document.data['sync_inspector'])
         if self.lyrics_editor.get('1.0','end-1c')!=self.lyric_document.text:
             self.lyrics_editor.delete('1.0','end');self.lyrics_editor.insert('1.0',self.lyric_document.text);self.lyrics_editor.edit_modified(False)
         for k,v in self.lyric_document.style.items():self.style_vars[k].set(v)
@@ -335,22 +353,39 @@ class KaraokeWorkspace:
 
     def alignment_setup(self):
         messagebox.showinfo('WhisperX alignment setup','Use the same Python environment as DeRo Sync. Install requirements-alignment.txt after installing a matching PyTorch and torchaudio build for your NVIDIA driver. Run Install_Lyric_Alignment.bat. Model downloads require an internet connection. Existing CUDA packages are preserved by the installer.')
+    def set_alignment_running(self,running):
+        self.lyrics_editor.configure(state='disabled' if running else 'normal')
+        self.auto_sync_lyrics_button.configure(state='disabled' if running else 'normal')
+
+    def alignment_available(self):
+        try:return importlib.util.find_spec('whisperx') is not None
+        except (ImportError,ValueError):return False
+
     def start_alignment(self):
         if self.lyric_control is not None:return
-        if self.lyrics_editor.get('1.0','end-1c')!=self.lyric_document.text:return messagebox.showinfo('Apply lyrics first','Apply the edited lyrics before starting alignment.')
-        if not self.lyric_document.events:return messagebox.showinfo('Lyrics missing','Paste and apply your lyrics first.')
-        source=self.vocals.get() if os.path.isfile(self.vocals.get()) else self.audio.get()
-        if not os.path.isfile(source):return messagebox.showerror('Audio missing','Choose a song or import a vocal stem first.')
-        if any(v in ('manual','reviewed') for v in self.lyric_document.data['alignment_status'].values()) and not messagebox.askyesno('Replace reviewed timings?','Successful alignment will replace current timings. Failed or canceled alignment keeps them. Continue?'):return
+        if self.busy:return messagebox.showinfo('Please wait','Finish the current analysis or export before alignment.')
+        source=self.vocals.get().strip()
+        if not source or not os.path.isfile(source):
+            return messagebox.showwarning('Isolated vocals required','Word Sync needs the separated vocal stem. Open Separation and select an existing vocals.wav file, or run Demucs. Your pasted lyrics and existing timings have not been changed.')
+        raw=self.lyrics_editor.get('1.0','end-1c')
+        lines=[line.strip() for line in raw.splitlines() if line.strip()]
+        if not lines:return messagebox.showwarning('Missing lyrics','Paste your correct lyrics first.')
+        if not self.alignment_available():return messagebox.showwarning('WhisperX not installed','Install WhisperX in the same Python 3.12 environment using Install_Lyric_Alignment.bat. Check your working PyTorch/CUDA setup before changing it. Existing lyrics and timings have not been changed.')
+        if self.lyric_document.words and not messagebox.askyesno('Replace existing word timings?','Automatic alignment will replace existing word timings, including manual edits and review marks. Failed or canceled alignment keeps them. Continue?',default='no'):return
         self.stop_monitor();self.lyric_generation+=1;generation=self.lyric_generation
-        snapshot=self.lyric_document.snapshot();control=ExportControl();self.lyric_control=control
+        snapshot=self.lyric_document.snapshot()
+        if raw!=self.lyric_document.text:
+            snapshot.update(authoritative_lyrics=raw,events=[],word_timings={},alignment_status={},word_scores={},manual_overrides={})
+        snapshot['style']['enabled']=True
+        control=ExportControl();self.lyric_control=control
         language={'English':'en','Spanish / Español':'es'}.get(self.song_language.get(),'auto')
+        self.set_alignment_running(True)
         self.lyric_message.set('Starting WhisperX alignment…')
         def work():
             try:
                 with tempfile.TemporaryDirectory(prefix='dero-align-') as folder:
                     request=Path(folder)/'request.json';result=Path(folder)/'result.json'
-                    request.write_text(json.dumps({'source':os.path.abspath(source),'lines':[e[2] for e in snapshot['events']],'language':language},ensure_ascii=False),encoding='utf-8')
+                    request.write_text(json.dumps({'source':os.path.abspath(source),'lines':lines,'language':language},ensure_ascii=False),encoding='utf-8')
                     cmd=[sys.executable,'-u',str(Path(__file__).with_name('whisperx_worker.py')),str(request),str(result)]
                     proc=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace',env=dict(os.environ,PYTHONIOENCODING='utf-8'))
                     tail=[]
@@ -362,7 +397,7 @@ class KaraokeWorkspace:
                     if code or not result.exists():raise RuntimeError('\n'.join(tail)[-2500:] or 'WhisperX did not return alignment data.')
                     aligned=json.loads(result.read_text(encoding='utf-8'))
                     checked=LyricDocument(snapshot);checked.apply_alignment(aligned)
-                    self.lyric_queue.put(('aligned',(generation,checked.snapshot(),aligned[5])))
+                    self.lyric_queue.put(('aligned',(generation,checked.snapshot(),aligned[5],aligned[6])))
             except ExportCancelled:self.lyric_queue.put(('alignment_error',(generation,'Alignment canceled. Existing timings kept.')))
             except Exception as exc:self.lyric_queue.put(('alignment_error',(generation,'Alignment failed; existing timings kept. '+str(exc))))
         threading.Thread(target=work,daemon=True).start()
@@ -419,9 +454,10 @@ class KaraokeWorkspace:
                     if generation==self.lyric_generation:self.lyric_message.set(line[-350:])
                 elif kind in ('aligned','alignment_error'):
                     if data[0]!=self.lyric_generation:continue
-                    self.lyric_control=None
+                    self.lyric_control=None;self.set_alignment_running(False)
                     if kind=='aligned':
-                        self.remember_lyrics();self.lyric_document=LyricDocument(data[1]);self.alignment_summary=data[2];self.refresh_lyrics()
+                        self.remember_lyrics();self.lyric_document=LyricDocument(data[1]);self.alignment_summary=data[2];self.alignment_inspector=data[3];self.refresh_lyrics()
+                        self.show_inspector('Word Sync');self.monitor_choice.set('Vocals');self.load_monitor();self.show_alignment_quality()
                     else:self.lyric_message.set(data[1]);messagebox.showerror('Alignment stopped',data[1])
                 elif kind=='monitor':
                     generation,path,samples,peaks,play=data
@@ -444,3 +480,39 @@ class KaraokeWorkspace:
             if position is not None:self.position.set(position);self.draw_word_timeline()
             if position is None or (not self.monitor_loop.get() and position>=self.monitor_end):self.stop_monitor()
         self.root.after(100,self.poll_karaoke)
+
+    def show_alignment_quality(self):
+        statuses=list(self.lyric_document.data['alignment_status'].values())
+        summary='   |   '.join(label+': '+str(statuses.count(key)) for key,label in [('aligned','Timestamp-matched'),('partial','Partial'),('estimated','Estimated'),('failed','Failed')])
+        window=tk.Toplevel(self.root);window.title('Synchronization quality');window.transient(self.root)
+        frame=ttk.Frame(window,padding=18);frame.pack(fill='both',expand=True)
+        ttk.Label(frame,text='Synchronization quality',style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(frame,text=summary,wraplength=560).pack(anchor='w',pady=12)
+        ttk.Label(frame,text='Partial and estimated lines need manual review. Timestamp matches do not guarantee audible accuracy. Your pasted lyrics were preserved.',wraplength=560,style='Muted.TLabel').pack(anchor='w',pady=(0,12))
+        row=ttk.Frame(frame);row.pack(fill='x')
+        def inspect():window.destroy();self.show_sync_inspector()
+        ttk.Button(row,text='Export JSON / Sync Inspector',command=inspect).pack(side='left')
+        ttk.Button(row,text='OK',command=window.destroy).pack(side='right');window.grab_set()
+
+    def show_sync_inspector(self):
+        if not self.alignment_summary:return messagebox.showinfo('Sync Inspector','Run automatic alignment first to inspect its timestamp matches and quality details.')
+        report={'summary':copy.deepcopy(self.alignment_summary),'inspector':copy.deepcopy(self.alignment_inspector)}
+        window=tk.Toplevel(self.root);window.title('Sync Inspector');window.geometry('760x520');window.minsize(560,350);window.transient(self.root)
+        frame=ttk.Frame(window,padding=14);frame.pack(fill='both',expand=True)
+        ttk.Label(frame,text='Alignment details',style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(frame,text='Includes the recognition transcript and word timing evidence. Export only if you want to save these details.',wraplength=680,style='Muted.TLabel').pack(anchor='w',pady=8)
+        box=ttk.Frame(frame);box.pack(fill='both',expand=True)
+        text=tk.Text(box,wrap='none',background='#080e19',foreground='#dbe8fa',font=('Consolas',10))
+        scroll=ttk.Scrollbar(box,command=text.yview);text.configure(yscrollcommand=scroll.set);scroll.pack(side='right',fill='y');text.pack(fill='both',expand=True)
+        encoded=json.dumps(report,ensure_ascii=False,indent=2);text.insert('1.0',encoded);text.configure(state='disabled')
+        row=ttk.Frame(frame);row.pack(fill='x',pady=(10,0))
+        folder=tk.StringVar(value='')
+        def save():
+            path=filedialog.asksaveasfilename(parent=window,initialfile=self.filename_stem()+' - Sync Inspector.json',defaultextension='.json',filetypes=[('Sync Inspector JSON','*.json')])
+            if not path:return
+            try:Path(path).write_text(encoded,encoding='utf-8')
+            except OSError as exc:return messagebox.showerror('Could not export Sync Inspector',str(exc),parent=window)
+            folder.set(str(Path(path).resolve().parent));open_folder.configure(state='normal')
+        ttk.Button(row,text='Export JSON...',command=save).pack(side='left')
+        open_folder=ttk.Button(row,text='Open JSON export folder',state='disabled',command=lambda:self._open_path(folder.get()));open_folder.pack(side='left',padx=6)
+        ttk.Button(row,text='Close',command=window.destroy).pack(side='right')

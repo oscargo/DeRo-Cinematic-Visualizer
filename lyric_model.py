@@ -23,7 +23,7 @@ def _number(value):
 class LyricDocument:
  def __init__(self,data=None):
   self.data={'schema_version':1,'authoritative_lyrics':'','events':[],'word_timings':{},
-             'alignment_status':{},'word_scores':{},'manual_overrides':{},'style':copy.deepcopy(STYLE_DEFAULTS)}
+             'alignment_status':{},'word_scores':{},'manual_overrides':{},'alignment_summary':{},'sync_inspector':{},'style':copy.deepcopy(STYLE_DEFAULTS)}
   if data is not None:
    if not isinstance(data,dict):raise ValueError('Lyrics must be a document object.')
    if data.get('schema_version',1)!=1:raise ValueError('Unsupported lyric document version.')
@@ -61,7 +61,7 @@ class LyricDocument:
     if _number(word[0])<0 or _number(word[1])<=word[0]:raise ValueError('Word end must be after its start.')
   for key in self.words:
    if not isinstance(key,str) or not key.isdigit() or str(int(key))!=key or int(key)>=len(self.events):raise ValueError('Word timings reference an unknown line.')
-  for key in ('alignment_status','word_scores','manual_overrides'):
+  for key in ('alignment_status','word_scores','manual_overrides','alignment_summary','sync_inspector'):
    if not isinstance(self.data[key],dict):raise ValueError('Invalid lyric review metadata.')
   for key,default in STYLE_DEFAULTS.items():
    value=self.style[key]
@@ -100,7 +100,7 @@ class LyricDocument:
  def apply_alignment(self,result):
   events,words,language,statuses,scores,summary,inspector=result
   proposal=self.snapshot();proposal.update(events=events,word_timings=words,alignment_status=statuses,
-       word_scores=scores,manual_overrides={})
+       word_scores=scores,manual_overrides={},alignment_summary=summary,sync_inspector=inspector)
   checked=LyricDocument(proposal)
   self.data=checked.data
   return language,summary,inspector

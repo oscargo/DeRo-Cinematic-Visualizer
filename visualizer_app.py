@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.34 — Karaoke Workspaces.
+"""DeRo Cinematic Visualizer v0.1.35 — Karaoke Workspaces.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -40,7 +40,7 @@ from audio_mix import mix_spec,prepare_mix
 class Application(KaraokeWorkspace):
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.34 - Karaoke Workspaces')
+        self.root.title('DeRo Cinematic Visualizer v0.1.35 - Karaoke Workspaces')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -219,7 +219,7 @@ class Application(KaraokeWorkspace):
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='v0.1.34',style='Muted.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='v0.1.35',style='Muted.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -824,7 +824,7 @@ class Application(KaraokeWorkspace):
         if hasattr(self,'song_overview'):
             title=self.title.get().strip();artist=self.artist.get().strip()
             self.song_overview.set(title+'\n'+(artist or 'Artist not provided') if title else 'No song loaded')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.34 - Karaoke Workspaces')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.35 - Karaoke Workspaces')
 
     def clear_media(self):
         self.reset_karaoke()

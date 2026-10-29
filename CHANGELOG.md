@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.35 — Maker Lite Lyrics Buttons
+
+- Add the two numbered Lyrics actions with a responsive layout and Maker Lite-style purple buttons.
+- Add app-wide favorite websites with clipboard copying, AZLyrics direct search, manual search instructions, add/edit/remove/reorder, and double-click opening. Read existing Maker Lite favorites without modifying them.
+- Require isolated vocals for WhisperX, accept pasted text directly, and confirm replacement of any existing timings.
+- Protect the lyric editor while the isolated alignment worker runs; preserve pasted text and prior timings on cancellation/failure.
+- Add synchronization-quality review, automatic navigation to Word Sync, and a Sync Inspector with JSON export and folder opening. Save alignment evidence in project documents.
+- Test favorite-site persistence, search encoding, real desktop clipboard/buttons, direct-paste alignment with a controlled result, inspector export, and vocal-stem guards. Neural inference/NVIDIA hardware remain unverified here.
+
 ## v0.1.34 — Karaoke Workspaces
 
 - Add native Lyrics, Word Sync, and Video Designer workspaces beside Song, Separation, and Preview/Export.

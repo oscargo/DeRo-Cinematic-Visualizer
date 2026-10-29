@@ -2,7 +2,7 @@
 import json,math,re,sys
 from pathlib import Path
 from lyric_alignment import *
-APP_BUILD='Cinematic-Visualizer-0.1.34'
+APP_BUILD='Cinematic-Visualizer-0.1.35'
 
 def align_exact_lyrics(source, lyrics, requested_language, emit):
     import whisperx, torch

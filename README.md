@@ -1,15 +1,24 @@
-# DeRo Cinematic Visualizer v0.1.34 — Karaoke Workspaces
+# DeRo Cinematic Visualizer v0.1.35 — Karaoke Workspaces
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 76% independently drifting particles, 24% mildly music-reactive. Output MP4 includes the selected audio (original mix by default).
 
 
-## Karaoke workflow (v0.1.34)
+## Lyrics buttons (v0.1.35)
+
+The Lyrics workspace has the two Maker Lite actions above the editor. They sit side by side when space permits and stack at the minimum window size.
+
+- **1 Favorite Lyrics Sites** copies the current artist and song title and opens the saved website list. Add, edit, remove, reorder, open, or double-click a site. AZLyrics supports direct song searches; other sites open with instructions to paste the copied names into their search field. Existing Maker Lite favorites are read automatically until you save a Visualizer list. Visualizer stores its own list in `~/.dero_cinematic_visualizer/favorite_lyrics_sites.json`; it does not modify Maker Lite's file. Lyrics are copied and pasted by you; the app does not download them automatically.
+- **2 Auto-sync pasted lyrics with WhisperX** accepts text directly from the editor. A separated vocal stem and the optional WhisperX installation are required, matching Maker Lite. It never silently substitutes the full mix. Existing timings require confirmation before replacement. The worker uses a fixed text snapshot; failed/canceled runs keep the previous timing document and pasted text. After success, a synchronization-quality window reports timestamp-matched, partial, estimated, and failed lines, then Word Sync provides manual review. The Sync Inspector shows the recognition/timestamp evidence and can export JSON or open its export folder. Inspector data is retained in the saved project.
+
+WhisperX inference and physical NVIDIA hardware remain unverified in this cloud environment. The button/controller workflow is tested with controlled alignment results; real FFmpeg/export tests remain in the suite.
+
+## Karaoke workflow (v0.1.35)
 
 The navigation includes **Song**, **Separation**, **Lyrics**, **Word Sync**, **Designer** (Video Designer), and **Export** (Preview/Export). Backdrop, Text, Visualizer, and Elements retain the existing cinematic controls.
 
 1. Import a song and confirm its proper song/artist names. Separation can create stems, or you can import existing stems.
 2. Open the visualizer preview to analyze the audio. In Lyrics, paste/import the exact text and apply it. Initial evenly distributed timings are explicitly **estimated**, not automatically verified.
-3. Install optional alignment support with `Install_Lyric_Alignment.bat`, using the same Python 3.12 environment as DeRo Sync. It pins existing torch/torchaudio packages rather than replacing a working CUDA build. If versions conflict, the installer reports the conflict. WhisperX needs downloadable model files; it uses NVIDIA CUDA when available and reports CPU otherwise. A failed or canceled alignment preserves existing timings. Successful alignment changes timings, never lyric words.
+3. Use **2 Auto-sync pasted lyrics with WhisperX** after connecting a separated vocal stem. Install optional alignment support with `Install_Lyric_Alignment.bat`, using the same Python 3.12 environment as DeRo Sync. It pins existing torch/torchaudio packages rather than replacing a working CUDA build. If versions conflict, the installer reports the conflict. WhisperX needs downloadable model files; it uses NVIDIA CUDA when available and reports CPU otherwise. A failed or canceled alignment preserves existing timings. Successful alignment changes timings, never lyric words.
 4. In Word Sync, load vocal, instrumental, or original monitoring audio independently of the export mix. Review line/word times, confidence, waveform, and draggable word bounds. Play/loop a line, set bounds at the playhead, tap word starts, nudge by 10 ms, shift all lyrics, mark reviewed, or undo/redo.
 5. In Designer, choose single, preview, alternating, or classic flow lyrics. Set the font, colors, position, outline, lead, fades, and intro/silence progress. Apply the design. The live preview is a fast layout guide; **Exact lyric preview** and the 10-second MP4 preview use the final libass pipeline for actual typography, wrapping, progressive highlighting, and fades.
 6. In Separation choose original, instrumental, vocals, or **Stem mix** for preview/export. Mix levels are independent; the cache invalidates when the source files or gains change. Word Sync's monitor selector does not change the export audio.
@@ -84,7 +93,7 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.34`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.35`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
