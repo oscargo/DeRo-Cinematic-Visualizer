@@ -14,13 +14,15 @@ def load_audio(path, sample_rate=22050, ffmpeg='ffmpeg', cancel=None):
     return samples,sample_rate
 
 
-def read_metadata(path, ffprobe='ffprobe'):
+def read_metadata(path, ffprobe='ffprobe', cancel=None):
     """Read only title/artist tags; do not invent artist information."""
     import json
     try:
-        proc=subprocess.run([ffprobe,'-v','error','-show_entries',
-            'format_tags=title,artist:stream=codec_type:stream_tags=title,artist',
-            '-of','json',path],capture_output=True,text=True,timeout=10)
+        cmd=[ffprobe,'-v','error','-show_entries',
+             'format_tags=title,artist:stream=codec_type:stream_tags=title,artist',
+             '-of','json',path]
+        proc=(cancel.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=10) if cancel is not None else
+              subprocess.run(cmd,capture_output=True,text=True,timeout=10))
         if proc.returncode:return {'title':'','artist':''}
         data=json.loads(proc.stdout)
         tags={}

@@ -1,4 +1,4 @@
-# DeRo Cinematic Visualizer v0.1.31 — Compact Workspace
+# DeRo Cinematic Visualizer v0.1.32 — Artist and Song Lookup
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
 
@@ -66,11 +66,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.32`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.33`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_31_Compact_Workspace.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_32_Artist_and_Song_Lookup.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +166,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_31_Compact_Workspace**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_32_Artist_and_Song_Lookup**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -491,3 +491,30 @@ Copy report and Save JSON live there. Export diagnostics, cancellation, elapsed
 time, remaining-time estimates, and safe CPU fallback remain available.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_31_Compact_Workspace.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_31_Compact_Workspace.zip)
+
+
+## v0.1.32 — Artist and Song Lookup
+
+**Audio** now contains Music file, Choose music, Song title (first line),
+Artist name (second line), and **Find artist and song**. Its unnecessary panel
+reset has been removed. **Text** contains appearance and positioning controls.
+The name fields still update the preview, project, and suggested export filename.
+
+Find artist and song reads the file tags first, then searches MusicBrainz using
+artist/title text. It does not upload audio or change tags in the music file.
+Online matches appear first in a review window. Select the correct recording,
+edit if needed, and choose **Apply names**. Only the two name fields are applied;
+source labels, database IDs, and search notices are never added to them.
+
+Obvious promotional suffixes (such as Official Video), download IDs, and repeated
+artist prefixes are removed from suggestions. Proper punctuation and published
+name spelling are preserved; names are not blindly converted to title case or
+translated. Meaningful Live/Remix/Remaster qualifiers are retained. If online lookup
+fails, the app says so and shows file-based suggestions as a fallback. A search
+cannot uniquely identify every cover or recording; review the match before applying.
+
+Internet access to `musicbrainz.org` is required for online search. No API key or
+new Python package is required. Service requests are rate-limited and have a timeout.
+See [artist and song lookup](docs/song_lookup.md) for behavior and validation limits.
+
+[Download DeRo_Cinematic_Visualizer_v0_1_32_Artist_and_Song_Lookup.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_32_Artist_and_Song_Lookup.zip)

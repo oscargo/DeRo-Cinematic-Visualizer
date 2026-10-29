@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.31 — Compact Workspace.
+"""DeRo Cinematic Visualizer v0.1.32 — Artist and Song Lookup.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -20,6 +20,7 @@ from tkinter import filedialog, messagebox, ttk, colorchooser, font as tkfont
 from PIL import Image, ImageTk
 from visualizer_core import Settings, Renderer, audio_features
 from audio_io import load_audio, read_metadata, suggested_name
+from song_identity import find_names
 from export_timing import ExportTimer,ExportETA
 from export_control import ExportControl,ExportCancelled
 from export_diagnostics import ExportReport,report_json
@@ -32,7 +33,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.31 - Compact Workspace')
+        self.root.title('DeRo Cinematic Visualizer v0.1.32 - Artist and Song Lookup')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -54,6 +55,8 @@ class Application:
         self.pending_selection=None
         self.layout_job=None
         self.metadata_pending_path=None
+        self.song_lookup_generation=0
+        self.song_lookup_control=None
         self.export_control=None
         self.last_export_report=None
         self.close_when_export_done=False
@@ -200,7 +203,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='v0.1.31',style='Muted.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='v0.1.32',style='Muted.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -270,8 +273,9 @@ class Application:
                   '03  /  SPECTRUM':'Visualizer','04  /  ATMOSPHERE':'Elements','05  /  OUTPUT':'Output'}[text]
             controls=ttk.Frame(content_root,padding=(10,4,10,14))
             self.inspector_pages[name]=controls
-            ttk.Label(controls,text=name,style='Heading.TLabel').pack(anchor='w',pady=(5,8))
-            ttk.Button(controls,text='Reset this panel',command=lambda n=name:self.reset_panel(n)).pack(fill='x',pady=(0,12))
+            if name!='Audio':
+                ttk.Label(controls,text=name,style='Heading.TLabel').pack(anchor='w',pady=(5,8))
+                ttk.Button(controls,text='Reset this panel',command=lambda n=name:self.reset_panel(n)).pack(fill='x',pady=(0,12))
             button=ttk.Button(rail,text=name,width=9,padding=(6,18),command=lambda n=name:self.show_inspector(n))
             button.pack(fill='x',pady=(0,8))
             self.navigation_buttons[name]=button
@@ -283,13 +287,17 @@ class Application:
             return widget
         section('01  /  SOURCE')
         field('Music file',self.audio)
-        ttk.Button(controls,text='Choose music...',style='Music.TButton',command=self.browse_audio).pack(fill='x',pady=(6,2))
+        ttk.Button(controls,text='Choose music...',style='Music.TButton',command=self.browse_audio).pack(fill='x',pady=(6,10))
+        self.song_title_entry=field('Song title (first line)',self.title)
+        self.artist_name_entry=field('Artist name (second line)',self.artist)
+        self.find_song_button=ttk.Button(controls,text='Find artist and song',command=self.find_artist_and_song)
+        self.find_song_button.pack(fill='x',pady=(12,0))
         section('BACKDROP')
         field('Background image / optional',self.background)
         ttk.Button(controls,text='Choose background...',style='Image.TButton',command=self.browse_background).pack(fill='x',pady=(6,2))
         ttk.Button(controls,text='Use default backdrop',command=lambda:self.reset_background()).pack(fill='x',pady=6)
         section('02  /  TITLE & LAYOUT')
-        field('Song name / first row',self.title)
+        ttk.Label(controls,text='Song text appearance',style='Section.TLabel').pack(anchor='w',pady=(8,0))
         field('Typeface',self.title_font,('Sans','Serif','Mono'))
         styles=ttk.Frame(controls);styles.pack(fill='x',pady=8)
         for label,var in (('Bold',self.title_bold),('Italic',self.title_italic),('Caps',self.title_uppercase)):
@@ -309,7 +317,7 @@ class Application:
         numeric('Title Y (%)',self.title_y,0,100)
         arrows('title')
         ttk.Button(controls,text='Reset title layout',command=lambda:self.reset_layout('title')).pack(fill='x',pady=(7,0))
-        field('Artist name / second row',self.artist)
+        ttk.Label(controls,text='Artist text appearance',style='Section.TLabel').pack(anchor='w',pady=(16,0))
         field('Artist typeface',self.artist_font,('Sans','Serif','Mono'))
         artist_styles=ttk.Frame(controls);artist_styles.pack(fill='x',pady=8)
         for label,var in (('Bold',self.artist_bold),('Italic',self.artist_italic),('Caps',self.artist_uppercase)):
@@ -548,7 +556,7 @@ class Application:
 
     def install_reset_controls(self):
         variables={str(var):key for key,var in self.project_vars.items()}
-        skip={'audio','background','overlay_path'}
+        skip={'audio','background','overlay_path','title','artist'}
         colors={'Title color...':'title_color','Artist color...':'artist_color',
             'Spectrum color...':'spectrum_color','Gradient end color...':'spectrum_color_end','Particle color...':'particle_color'}
         def walk(parent):
@@ -737,9 +745,10 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.31 - Compact Workspace')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.32 - Artist and Song Lookup')
 
     def clear_media(self):
+        self.invalidate_song_lookup()
         self.pause()
         self.preview_player.load(None)
         self.preview_audio=None
@@ -819,6 +828,7 @@ class Application:
             self.destroy_application()
 
     def destroy_application(self):
+        self.invalidate_song_lookup()
         self.pause()
         self.close_fullscreen_preview()
         self.particle_executor.shutdown(wait=False,cancel_futures=True)
@@ -849,7 +859,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Compact Workspace')
+        window.title('DeRo / Artist and Song Lookup')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -932,12 +942,87 @@ class Application:
         p=filedialog.askopenfilename(initialdir=self._browse_initial_folder('music',self.audio.get()),
             filetypes=[('Audio files','*.wav *.mp3 *.flac *.m4a *.aac *.ogg *.wma'),('All files','*.*')])
         if p:
+            self.invalidate_song_lookup()
             self._remember_folder('music',p)
             self.audio.set(p)
             self.metadata_pending_path=p
             self.pause()
             self.samples=None;self.features=None;self.renderer=None
             self.prepare_preview()
+
+    def invalidate_song_lookup(self):
+        self.song_lookup_generation+=1
+        if self.song_lookup_control is not None:self.song_lookup_control.cancel()
+        self.song_lookup_control=None
+        self.find_song_button.configure(state='normal',text='Find artist and song')
+
+    def find_artist_and_song(self):
+        path=self.audio.get().strip()
+        if not os.path.isfile(path):
+            self.status.set('Choose a valid music file first.')
+            return
+        if self.song_lookup_control is not None:return
+        self.song_lookup_generation+=1
+        generation=self.song_lookup_generation
+        control=ExportControl();self.song_lookup_control=control
+        self.find_song_button.configure(state='disabled',text='Finding song information...')
+        self.status.set('Reading the file tags, then searching for the artist and song...')
+        def worker():
+            try:
+                suggestions,notice=find_names(path,cancel=control)
+                self.q.put(('song_lookup',(generation,path,suggestions,notice,None)))
+            except ExportCancelled:pass
+            except Exception as exc:self.q.put(('song_lookup',(generation,path,[],'',str(exc))))
+        threading.Thread(target=worker,daemon=True).start()
+
+    def review_song_suggestions(self,generation,path,suggestions,notice):
+        window=tk.Toplevel(self.root);window.title('Review artist and song')
+        window.transient(self.root);window.geometry('720x460');window.minsize(600,440)
+        content=ttk.Frame(window,padding=16);content.pack(fill='both',expand=True)
+        ttk.Label(content,text='Review the names before applying them.',style='Section.TLabel').pack(anchor='w')
+        ttk.Label(content,text='Search uses artist and title text only. Your audio is not uploaded.',
+                  style='Muted.TLabel',wraplength=620).pack(anchor='w',pady=(5,12))
+        tree=ttk.Treeview(content,columns=('song','artist','source'),show='headings',height=3,selectmode='browse')
+        for key,label,width in (('song','Song title',220),('artist','Artist name',180),('source','Source',180)):
+            tree.heading(key,text=label);tree.column(key,width=width,minwidth=80)
+        tree.pack(fill='x')
+        for index,suggestion in enumerate(suggestions):
+            tree.insert('','end',iid=str(index),values=(suggestion.title,suggestion.artist,suggestion.source))
+        song=tk.StringVar(value=self.title.get());artist=tk.StringVar(value=self.artist.get())
+        ttk.Label(content,text='Song title',style='Muted.TLabel').pack(anchor='w',pady=(12,4))
+        ttk.Entry(content,textvariable=song).pack(fill='x')
+        ttk.Label(content,text='Artist name',style='Muted.TLabel').pack(anchor='w',pady=(8,4))
+        ttk.Entry(content,textvariable=artist).pack(fill='x')
+        message=tk.StringVar(value=notice)
+        ttk.Label(content,textvariable=message,style='Muted.TLabel',wraplength=620).pack(anchor='w',pady=(8,0))
+        def select(event=None):
+            if tree.selection():
+                suggestion=suggestions[int(tree.selection()[0])]
+                song.set(suggestion.title);artist.set(suggestion.artist)
+                message.set(notice+(' No artist name was found; enter it below.' if not suggestion.artist else ''))
+        tree.bind('<<TreeviewSelect>>',select)
+        if suggestions:tree.selection_set('0');select()
+        buttons=ttk.Frame(content);buttons.pack(side='bottom',fill='x',pady=(12,0))
+        def apply():
+            if generation!=self.song_lookup_generation or path!=self.audio.get().strip():
+                message.set('The selected music file has changed. Close this window and try again.')
+                return
+            title_value=song.get().strip();artist_value=artist.get().strip()
+            if not title_value or not artist_value:
+                message.set('Enter a song title and an artist name before applying them.')
+                return
+            self.metadata_pending_path=None
+            self.title.set(title_value);self.artist.set(artist_value)
+            self.reset_text_defaults={'title':title_value,'artist':artist_value}
+            self.status.set('The song title and artist name have been updated.')
+            window.destroy()
+        def cancel():
+            self.status.set('The song title and artist name were left unchanged.')
+            window.destroy()
+        ttk.Button(buttons,text='Apply names',command=apply).pack(side='right')
+        ttk.Button(buttons,text='Cancel',command=cancel).pack(side='right',padx=(0,8))
+        window.protocol('WM_DELETE_WINDOW',cancel)
+        window.grab_set()
 
     def browse_background(self):
         p=filedialog.askopenfilename(initialdir=self._browse_initial_folder('background',self.background.get()),
@@ -1312,7 +1397,17 @@ class Application:
         try:
             while True:
                 kind,data=self.q.get_nowait()
-                if kind=='export_report':
+                if kind=='song_lookup':
+                    generation,path,suggestions,notice,error=data
+                    if generation!=self.song_lookup_generation:continue
+                    self.song_lookup_control=None
+                    self.find_song_button.configure(state='normal',text='Find artist and song')
+                    if path!=self.audio.get().strip():continue
+                    if error:self.status.set('Could not read the song information: '+error)
+                    else:
+                        self.status.set('Review the artist and song names before applying them.')
+                        self.review_song_suggestions(generation,path,suggestions,notice)
+                elif kind=='export_report':
                     self.last_export_report=data
                     self.export_outcome=data.data['status']
                 elif kind=='export_canceled':

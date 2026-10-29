@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.32 — Artist and Song Lookup
+
+- Match the Audio panel layout: music file, Choose music, song title, artist name, and one lookup button.
+- Remove the Audio heading/panel-reset button and individual reset buttons from the name fields.
+- Keep text appearance controls in Text; both tabs use the existing shared project variables.
+- Read file metadata first, then search MusicBrainz for proper artist/song names; do not upload audio.
+- Clean promotional suffixes and duplicated artist prefixes while preserving meaningful punctuation, spelling, and musical versions.
+- Review/edit matches before applying names; mark filename suggestions unverified and disclose unavailable online lookup.
+- Run lookup off the UI thread, cancel metadata reading on file/project changes, and discard stale results.
+- Test parsing, offline fallback, cleanup, and the GUI using representative service responses; live MusicBrainz access is blocked by the cloud network policy.
+
 ## v0.1.31 — Compact Workspace
 
 - Replace the stacked diagnostic header with a compact export strip.
