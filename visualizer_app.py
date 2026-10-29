@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.33 — Song Workspace.
+"""DeRo Cinematic Visualizer v0.1.34 — Karaoke Workspaces.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -30,12 +30,17 @@ from export_video import export
 from video_encoder import ENCODER_CHOICES
 from preview_audio import PreviewAudio, decode_preview
 from notifications import completion_tone
-from project_io import DEFAULTS, validate_settings, save_project, load_project
+from project_io import DEFAULTS, validate_settings, save_project, load_project, load_project_full
+from karaoke_workspace import KaraokeWorkspace
+from lyric_model import LyricDocument
+from lyric_render import IdentityRenderer
+from lyric_guide import draw_lyric_guide
+from audio_mix import mix_spec,prepare_mix
 
-class Application:
+class Application(KaraokeWorkspace):
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.33 - Song Workspace')
+        self.root.title('DeRo Cinematic Visualizer v0.1.34 - Karaoke Workspaces')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -106,9 +111,11 @@ class Application:
         self.preview_player=PreviewAudio()
         self.preview_audio=None
         self.t0=0.0
+        self.init_karaoke()
         self.build()
         self.install_reset_controls()
         self.saved_project_state=self.project_state()
+        self.saved_lyrics=self.lyric_document.snapshot()
         self.root.protocol('WM_DELETE_WINDOW',self.close_project)
         for key in ('fps','bands','frequency_min','frequency_max','frequency_scale','spectrum_mapping','spectrum_style','spectrum_mirrored',
                     'spectrum_density','spectrum_fill','spectrum_color_end','particle_continuous','particles_enabled','particle_reactivity','particle_direction','particle_reactive','particle_color','spectrum_color',
@@ -212,7 +219,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='v0.1.33',style='Muted.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='v0.1.34',style='Muted.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -317,7 +324,9 @@ class Application:
         ttk.Button(controls,text='Browse instrumental...',command=lambda:self.browse_stem('instrumental')).pack(fill='x',pady=(5,6))
         field('Vocal track',self.vocals)
         ttk.Button(controls,text='Browse vocals...',command=lambda:self.browse_stem('vocals')).pack(fill='x',pady=(5,6))
-        self.audio_track_selector=field('Preview and export audio',self.audio_track,('Original mix','Instrumental','Vocals'))
+        self.audio_track_selector=field('Preview and export audio',self.audio_track,('Original mix','Instrumental','Vocals','Stem mix'))
+        field('Instrumental level (%)',self.instrumental_gain)
+        field('Vocal level (%)',self.vocal_gain)
         self.audio_track_selector.bind('<<ComboboxSelected>>',lambda event:self.prepare_preview())
         section('BACKDROP')
         field('Background image / optional',self.background)
@@ -490,6 +499,7 @@ class Application:
             buttons.columnconfigure(i%3,weight=1)
             ttk.Button(buttons,text=label,command=cmd).grid(row=i//3,column=i%3,sticky='ew',padx=(0,6),pady=3)
         self.build_song_workspaces(workspace)
+        self.build_karaoke(workspace)
 
     def build_song_workspaces(self,workspace):
         self.song_workspace=ttk.Frame(workspace,padding=20)
@@ -499,8 +509,8 @@ class Application:
         ttk.Label(self.song_workspace,text='PROJECT OVERVIEW',style='Section.TLabel').pack(anchor='w')
         ttk.Label(self.song_workspace,textvariable=self.song_overview,wraplength=560).pack(anchor='w',pady=(12,8))
         ttk.Label(self.song_workspace,textvariable=self.song_workflow_status,style='Muted.TLabel',wraplength=560).pack(anchor='w',pady=(0,14))
-        for label in ('01  Import song','02  Separate vocals','03  Choose a background',
-                      '04  Style the song and artist','05  Preview the visualizer','06  Export MP4'):
+        for label in ('01  Import song','02  Separate vocals','03  Paste exact lyrics',
+                      '04  Align and review words','05  Design cinematic lyrics','06  Preview and export MP4'):
             ttk.Label(self.song_workspace,text=label,padding=(12,9)).pack(fill='x',pady=3)
         ttk.Button(self.song_workspace,text='Open visualizer preview',command=self.open_visualizer_preview).pack(anchor='w',pady=(16,0))
         self.separation_workspace=ttk.Frame(workspace,padding=20)
@@ -516,7 +526,7 @@ class Application:
         self.separation_log.configure(yscrollcommand=log_scroll.set)
         log_scroll.pack(side='right',fill='y');self.separation_log.pack(fill='both',expand=True)
         ttk.Button(self.separation_workspace,text='Open visualizer preview',command=self.open_visualizer_preview).pack(anchor='w',pady=(12,0))
-        self.audio_track.trace_add('write',self.schedule_layout_preview)
+        for variable in (self.audio_track,self.instrumental_gain,self.vocal_gain):variable.trace_add('write',self.schedule_layout_preview)
         self.show_inspector('Audio')
 
     def play_completion_chime(self):
@@ -674,8 +684,8 @@ class Application:
         self.inspector_canvas.after_idle(lambda:self.inspector_canvas.configure(scrollregion=self.inspector_canvas.bbox('all')))
 
         if hasattr(self,'song_workspace'):
-            for overlay in (self.song_workspace,self.separation_workspace):overlay.place_forget()
-            overlay=self.song_workspace if name=='Audio' else self.separation_workspace if name=='Separation' else None
+            for overlay in (self.song_workspace,self.separation_workspace,*getattr(self,'karaoke_overlays',{}).values()):overlay.place_forget()
+            overlay=self.song_workspace if name=='Audio' else self.separation_workspace if name=='Separation' else getattr(self,'karaoke_overlays',{}).get(name)
             if overlay is not None:
                 overlay.place(relx=0,rely=0,relwidth=1,relheight=1)
                 overlay.tkraise()
@@ -800,7 +810,7 @@ class Application:
     def confirm_replace(self):
         if self.busy:
             messagebox.showinfo('Please wait','Wait for the current analysis or export to finish.');return False
-        try:changed=self.project_state()!=self.saved_project_state
+        try:changed=(self.project_state()!=self.saved_project_state or self.lyric_document.snapshot()!=self.saved_lyrics or self.lyrics_editor.get('1.0','end-1c')!=self.lyric_document.text)
         except (ValueError,tk.TclError):changed=True
         if not changed:return True
         answer=messagebox.askyesnocancel('Unsaved project','Save your changes before continuing?')
@@ -814,9 +824,10 @@ class Application:
         if hasattr(self,'song_overview'):
             title=self.title.get().strip();artist=self.artist.get().strip()
             self.song_overview.set(title+'\n'+(artist or 'Artist not provided') if title else 'No song loaded')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.33 - Song Workspace')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.34 - Karaoke Workspaces')
 
     def clear_media(self):
+        self.reset_karaoke()
         self.song_import_generation+=1
         self.particle_generation+=1;self.particle_request=None
         if self.particle_future is not None:self.particle_future.cancel()
@@ -848,6 +859,7 @@ class Application:
         self.project_path=None
         self.reset_text_defaults={'title':'','artist':''}
         self.saved_project_state=self.project_state()
+        self.saved_lyrics=self.lyric_document.snapshot()
         self.update_project_title()
         self.status.set('New project. All composition settings restored to defaults.')
 
@@ -861,10 +873,13 @@ class Application:
                 path=filedialog.asksaveasfilename(initialdir=self._browse_initial_folder('project',self.project_path or ''),defaultextension='.dero',filetypes=[('DeRo project','*.dero')],
                     initialfile=self.filename_stem()+'.dero')
             if not path:return False
-            save_project(path,values,*selection)
+            if self.lyrics_editor.get('1.0','end-1c')!=self.lyric_document.text:
+                messagebox.showinfo('Apply lyric edits','Apply the lyric edits before saving the project.');return False
+            save_project(path,values,*selection,lyrics=self.lyric_document.snapshot())
             self.project_path=os.path.abspath(path)
             self._remember_folder('project',path)
             self.saved_project_state=self.project_state()
+            self.saved_lyrics=self.lyric_document.snapshot()
             self.update_project_title()
             self.status.set('Project saved: '+self.project_path)
             return True
@@ -875,17 +890,19 @@ class Application:
         if not self.confirm_replace():return
         path=filedialog.askopenfilename(initialdir=self._browse_initial_folder('project',self.project_path or ''),filetypes=[('DeRo project','*.dero'),('JSON project','*.json')])
         if not path:return
-        try:values,selection=load_project(path)
+        try:values,selection,lyrics=load_project_full(path)
         except (OSError,ValueError) as exc:
             messagebox.showerror('Could not open project',str(exc));return
         self._remember_folder('project',path)
         self.clear_media()
+        self.lyric_document=lyrics;self.refresh_lyrics()
         for key,value in values.items():self.project_vars[key].set(value)
-        self.project_path=os.path.abspath(path)
+        self.project_path=os.path.abspath(path) if path.lower().endswith('.dero') else None
         self.reset_text_defaults={key:values[key] for key in ('title','artist')}
         self.selection_start.set(selection[0]);self.selection_end.set(selection[1] or 0)
         self.pending_selection=selection
         self.saved_project_state=self.project_state()
+        self.saved_lyrics=self.lyric_document.snapshot()
         self.update_project_title()
         self.song_workflow_status.set('Project loaded. Review its audio and stem paths before continuing.')
         missing=[key for key in ('audio','background','overlay_path') if values[key] and (key!='overlay_path' or values['overlay_enabled']) and not os.path.isfile(values[key])]
@@ -909,10 +926,14 @@ class Application:
             self.destroy_application()
 
     def destroy_application(self):
+        self.cancel_alignment();self.stop_monitor()
         self.invalidate_song_lookup()
         self.pause()
         self.close_fullscreen_preview()
         self.particle_executor.shutdown(wait=False,cancel_futures=True)
+        for callback in self.root.tk.call('after','info'):
+            try:self.root.after_cancel(callback)
+            except tk.TclError:pass
         self.root.destroy()
 
     def quick_test_preset(self):
@@ -940,7 +961,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Song Workspace')
+        window.title('DeRo / Karaoke Workspaces')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -1112,6 +1133,7 @@ class Application:
 
     def active_audio_path(self):
         choice=self.audio_track.get()
+        if choice=='Stem mix':return mix_spec(self.instrumental.get(),self.vocals.get(),self.instrumental_gain.get(),self.vocal_gain.get())['path']
         path=(self.instrumental.get() if choice=='Instrumental' else self.vocals.get() if choice=='Vocals' else self.audio.get()).strip()
         if not path or not os.path.isfile(path):raise ValueError('The selected '+choice.lower()+' audio is missing. Choose or generate its file first.')
         return path
@@ -1269,7 +1291,7 @@ class Application:
     def prepare_preview(self):
         if self.busy:return
         try:path=self.active_audio_path()
-        except ValueError as exc:self.status.set(str(exc));return
+        except (ValueError,OSError) as exc:self.status.set(str(exc));return
         try:
             validate_settings({key:var.get() for key,var in self.project_vars.items()})
             settings=self.settings(preview=True)
@@ -1280,8 +1302,12 @@ class Application:
         metadata_pending=self.audio.get().strip()==self.metadata_pending_path
         metadata_path=self.audio.get().strip()
         cache=self.preview_cache
+        try:mix=mix_spec(self.instrumental.get(),self.vocals.get(),self.instrumental_gain.get(),self.vocal_gain.get()) if self.audio_track.get()=='Stem mix' else None
+        except (OSError,ValueError) as exc:
+            self.busy=False;self.status.set('Stem mix unavailable: '+str(exc));return
         def worker():
             try:
+                if mix is not None:prepare_mix(mix)
                 if metadata_pending:
                     self.q.put(('metadata',(metadata_path,read_metadata(metadata_path))))
                 samples,sr,playback,features=cache.prepare(path,settings,load_audio,decode_preview,audio_features)
@@ -1294,7 +1320,8 @@ class Application:
         if self.renderer is None:return
         pos=min(self.length,max(0,self.position.get()))
         try:
-            frame=self.renderer.render(pos)
+            frame=IdentityRenderer(self.renderer,self.lyric_document).render(pos)
+            frame=draw_lyric_guide(frame,pos,self.lyric_document)
             self.preview_frame=frame
             self.fit_preview()
         except Exception as exc:self.status.set(f'Preview error: {exc}')
@@ -1353,7 +1380,7 @@ class Application:
                 raise ValueError('Start must be earlier than End.')
             (self.selection_start if which=='start' else self.selection_end).set(t)
             self.update_selection()
-        except (ValueError,tk.TclError) as exc:self.status.set(str(exc))
+        except (ValueError,OSError,tk.TclError) as exc:self.status.set(str(exc))
 
     def toggle_sound(self):
         self.preview_player.muted=not self.sound_enabled.get()
@@ -1374,6 +1401,7 @@ class Application:
             self.status.set('Preview sound unavailable: '+str(exc)+'. Visual playback remains available.')
 
     def pause(self):
+        self.stop_monitor()
         if self.playing and self.preview_player.stream is not None:
             self.position.set(self.preview_player.position())
         self.preview_player.stop()
@@ -1480,7 +1508,7 @@ class Application:
         if not os.path.isfile(self.audio.get()):return messagebox.showerror('Audio missing','Select a music file first.')
         if not shutil.which('ffmpeg'):return messagebox.showerror('FFmpeg missing','Install FFmpeg and add it to PATH.')
         try:active_path=self.active_audio_path()
-        except ValueError as exc:return messagebox.showerror('Missing audio',str(exc))
+        except (ValueError,OSError) as exc:return messagebox.showerror('Missing audio',str(exc))
         if self.loaded_audio_path != active_path:
             self.prepare_preview()
             return messagebox.showinfo('Analyze music','Wait for the preview, then choose the export range.')
@@ -1490,6 +1518,11 @@ class Application:
             settings=self.settings()
         except (ValueError,tk.TclError) as exc:
             return messagebox.showerror('Invalid selection',str(exc))
+        if self.lyric_control is not None:return messagebox.showinfo('Alignment running','Wait for alignment to finish before export.')
+        if self.lyrics_editor.get('1.0','end-1c')!=self.lyric_document.text:return messagebox.showinfo('Apply lyrics','Apply the lyric edits before export.')
+        lyric_snapshot=self.lyric_document.snapshot()
+        if self.lyric_document.style['enabled'] and self.lyric_document.warnings():
+            if not messagebox.askyesno('Review lyric timing','Some lyric timings are estimated or need review. Export them anyway?'):return
         audio_path=active_path
         out=filedialog.asksaveasfilename(
             initialdir=self._browse_initial_folder('export', self.last_export_path or ''),
@@ -1525,7 +1558,7 @@ class Application:
                 export(audio_path,out,settings,progress=lambda i,n:self.q.put(('progress',(i,n,time.monotonic()))),
                        start_seconds=start,end_seconds=end,cached_analysis=cached_analysis,
                        encoder_status=lambda message:self.q.put(('encoder',message)),
-                       cancel=control,diagnostics=diagnostics)
+                       cancel=control,diagnostics=diagnostics,lyric_document=lyric_snapshot)
                 if not os.path.isfile(out) or os.path.getsize(out)==0:
                     raise RuntimeError('Export returned without a valid output MP4.')
             except ExportCancelled:

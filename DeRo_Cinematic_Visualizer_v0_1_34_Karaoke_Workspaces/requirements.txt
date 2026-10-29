@@ -1,0 +1,5 @@
+numpy>=1.26,<3
+Pillow>=10,<13
+sounddevice>=0.5,<0.6
+psutil>=5.9,<8
+mutagen>=1.47,<2

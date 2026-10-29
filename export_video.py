@@ -9,15 +9,19 @@ from export_diagnostics import ExportReport
 from video_encoder import select_encoder,CPU_OPTIONS
 from visualizer_core import Renderer,Settings,audio_features
 from audio_io import load_audio
+from lyric_render import lyric_overlay,IdentityRenderer,ass_filter
+from lyric_model import LyricDocument
+from contextlib import ExitStack
 
 
 def export(audio_path,output_path,settings: Settings,ffmpeg='ffmpeg',progress=None,
            start_seconds=0.0,end_seconds=None,cached_analysis=None,encoder_status=None,
-           cancel=None,diagnostics=None):
+           cancel=None,diagnostics=None,lyric_document=None):
     """Optional control/report arguments preserve the existing path-return API."""
     control=cancel if cancel is not None else ExportControl()
     stats=diagnostics if diagnostics is not None else ExportReport(settings)
     status='failed';error=None
+    resources=ExitStack()
     try:
         control.check()
         if diagnostics is not None:
@@ -53,6 +57,10 @@ def export(audio_path,output_path,settings: Settings,ffmpeg='ffmpeg',progress=No
         control.check()
         with stats.stage('renderer_preparation'):
             renderer=Renderer(settings,features,cancel_check=control.check)
+        doc=LyricDocument(lyric_document)
+        overlay=resources.enter_context(lyric_overlay(doc.snapshot(),settings,ffmpeg,control))
+        if overlay is not None:renderer=IdentityRenderer(renderer,doc)
+        stats.data['lyrics']={'enabled':overlay is not None,'lines':len(doc.events),'warnings':len(doc.warnings())}
         def report_encoder(message):
             stats.encoder(message)
             if encoder_status:encoder_status(message)
@@ -67,13 +75,13 @@ def export(audio_path,output_path,settings: Settings,ffmpeg='ffmpeg',progress=No
             with stats.stage('render_and_encode'):
                 try:
                     _encode(ffmpeg,audio_path,temporary,settings,renderer,options,
-                            start_seconds,clip_duration,frame_count,progress,control,stats)
+                            start_seconds,clip_duration,frame_count,progress,control,stats,overlay)
                 except EncodingError as exc:
                     control.check()
                     if codec=='libx264':raise
                     report_encoder('CPU fallback: NVIDIA encoding failed; restarting export. '+str(exc)[-500:])
                     _encode(ffmpeg,audio_path,temporary,settings,renderer,CPU_OPTIONS,
-                            start_seconds,clip_duration,frame_count,progress,control,stats)
+                            start_seconds,clip_duration,frame_count,progress,control,stats,overlay)
             with stats.stage('publish_output'):
                 control.commit(lambda:os.replace(temporary,destination))
         finally:
@@ -88,6 +96,7 @@ def export(audio_path,output_path,settings: Settings,ffmpeg='ffmpeg',progress=No
             raise error from exc
         error=exc;raise
     finally:
+        resources.close()
         stats.finish(status,error)
 
 
@@ -96,7 +105,7 @@ class EncodingError(RuntimeError):
 
 
 def _encode(ffmpeg,audio_path,output_path,settings,renderer,options,
-            start_seconds,clip_duration,frame_count,progress,control=None,stats=None):
+            start_seconds,clip_duration,frame_count,progress,control=None,stats=None,overlay=None):
     control=control if control is not None else ExportControl()
     attempt={'encoder':options[options.index('-c:v')+1],'status':'running',
              'frames_rendered':0,'frames_written':0,'render_seconds':0.,
@@ -104,13 +113,14 @@ def _encode(ffmpeg,audio_path,output_path,settings,renderer,options,
     if stats is not None:stats.data['attempts'].append(attempt)
     cmd=[ffmpeg,'-hide_banner','-loglevel','error','-y','-f','rawvideo','-vcodec','rawvideo',
          '-pix_fmt','rgb24','-s',f'{settings.width}x{settings.height}','-r',str(settings.fps),'-i','pipe:0',
-         '-ss',str(start_seconds),'-i',audio_path,'-map','0:v:0','-map','1:a:0',*options,
-         '-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart','-t',str(clip_duration),'-shortest',output_path]
+         '-ss',str(start_seconds),'-i',os.path.abspath(audio_path),'-map','0:v:0','-map','1:a:0',
+         *(['-filter_threads','1','-vf',ass_filter(start_seconds)] if overlay else []),*options,
+         '-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart','-t',str(clip_duration),'-shortest',os.path.abspath(output_path)]
     try:
         control.check()
         # Disk-backed stderr avoids blocking the frame writer on an unread pipe.
         with tempfile.TemporaryFile() as errors:
-            proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stderr=errors)
+            proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stderr=errors,**({'cwd':overlay} if overlay else {}))
             try:
                 with control.process(proc):
                     if progress:progress(0,frame_count) # restart ETA on a CPU retry

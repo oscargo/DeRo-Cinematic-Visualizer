@@ -68,6 +68,8 @@ class ExportCacheTests(unittest.TestCase):
 
     def test_gui_passes_captured_snapshot_to_export_worker(self):
         app=Mock()
+        from lyric_model import LyricDocument
+        app.lyric_control=None;app.lyric_document=LyricDocument();app.lyrics_editor.get.return_value=''
         app.export_timer=ExportTimer()
         app.busy=False;app.audio.get.return_value='source.wav'
         app.instrumental.get.return_value=''

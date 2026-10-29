@@ -1,6 +1,23 @@
-# DeRo Cinematic Visualizer v0.1.33 — Song Workspace
+# DeRo Cinematic Visualizer v0.1.34 — Karaoke Workspaces
 
 A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 76% independently drifting particles, 24% mildly music-reactive. Output MP4 includes the selected audio (original mix by default).
+
+
+## Karaoke workflow (v0.1.34)
+
+The navigation includes **Song**, **Separation**, **Lyrics**, **Word Sync**, **Designer** (Video Designer), and **Export** (Preview/Export). Backdrop, Text, Visualizer, and Elements retain the existing cinematic controls.
+
+1. Import a song and confirm its proper song/artist names. Separation can create stems, or you can import existing stems.
+2. Open the visualizer preview to analyze the audio. In Lyrics, paste/import the exact text and apply it. Initial evenly distributed timings are explicitly **estimated**, not automatically verified.
+3. Install optional alignment support with `Install_Lyric_Alignment.bat`, using the same Python 3.12 environment as DeRo Sync. It pins existing torch/torchaudio packages rather than replacing a working CUDA build. If versions conflict, the installer reports the conflict. WhisperX needs downloadable model files; it uses NVIDIA CUDA when available and reports CPU otherwise. A failed or canceled alignment preserves existing timings. Successful alignment changes timings, never lyric words.
+4. In Word Sync, load vocal, instrumental, or original monitoring audio independently of the export mix. Review line/word times, confidence, waveform, and draggable word bounds. Play/loop a line, set bounds at the playhead, tap word starts, nudge by 10 ms, shift all lyrics, mark reviewed, or undo/redo.
+5. In Designer, choose single, preview, alternating, or classic flow lyrics. Set the font, colors, position, outline, lead, fades, and intro/silence progress. Apply the design. The live preview is a fast layout guide; **Exact lyric preview** and the 10-second MP4 preview use the final libass pipeline for actual typography, wrapping, progressive highlighting, and fades.
+6. In Separation choose original, instrumental, vocals, or **Stem mix** for preview/export. Mix levels are independent; the cache invalidates when the source files or gains change. Word Sync's monitor selector does not change the export audio.
+7. Export the selected range. Lyrics retain absolute song timing when exporting a clip. NVIDIA NVENC accelerates H.264 encoding; cinematic frames, libass lyrics, and audio mixing use CPU. Encoding fallback, elapsed/remaining time, cancellation, and diagnostics remain available.
+
+Save `.dero` projects to retain the exact lyrics, word times, review status, style, stems, levels, and existing visual settings. Open a DeRo Sync `KaraokeStudioProject` version 2 JSON to import its lyrics, timings, review state, song identity, and stem references; save it as a new `.dero` project. Its separate FFmpeg Video Designer configuration is not substituted for the cinematic renderer. Export `.ass` subtitles or plain lyric text from their tabs.
+
+**Validation:** real FFmpeg tests cover lyric burn-in, nonzero clip offsets, exact frames, stem mixing, and existing GPU fallback behavior; desktop tests cover editing, cancellation, undo/redo and saved projects at the minimum window size. WhisperX adapter tests use supported transcript fixtures. Physical NVIDIA encoding and real neural-model inference remain unverified in this cloud environment. Background video and every source app's ancillary tool are not included; the native workspaces keep the existing still-image cinematic renderer.
 
 ## Setup (Windows)
 1. Ensure **Python 3.12** and **FFmpeg** are installed. Put `C:\FFmpeg\bin` on PATH or otherwise make `ffmpeg` available.
@@ -15,7 +32,7 @@ A standalone, reusable Python 3.12 music visualizer. It renders cinematic floati
 - Background supports **still images or built-in navy gradient only**, not background video yet. Adding video compositing later should preserve the renderer API.
 - MP4 encoding can use NVIDIA NVENC; CPU rendering and particle simulation can still limit full-length 1080p60 export speed.
 - The exported visualization is a best-effort aesthetic interpretation, **not a pixel-perfect recreation of the reference clip**.
-- The audio features are precomputed; long songs require memory and initial analysis time. Export re-analyzes at selected FPS and resolution.
+- The audio features are precomputed; long songs require memory and initial analysis time. Export reuses matching preview analysis and recalculates it when the source or analysis settings change.
 
 ## DeRo Sync / Karaoke Maker Lite integration
 Do **not** copy GUI code into DeRo Sync. Import `visualizer_core.Settings`, `visualizer_core.Renderer`, and `visualizer_core.audio_features`, then use the current Karaoke Maker Lite audio samples / synchronized timeline to render frames:

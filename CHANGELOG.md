@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.34 — Karaoke Workspaces
+
+- Add native Lyrics, Word Sync, and Video Designer workspaces beside Song, Separation, and Preview/Export.
+- Preserve exact lyric text in a shared, validated document used by editors, saved projects, and export.
+- Port DeRo Sync alignment safeguards into an isolated, cancelable WhisperX worker; retain old timings on failure/cancellation and explicitly mark estimated/partial timings.
+- Add vocal/original/instrumental monitoring, waveform and draggable word bounds, line/word editing, playhead/tap controls, 10 ms nudges, shifts, review status, and undo/redo.
+- Add source ASS lyric layouts, progressive highlighting, font/color/position controls, intro/silence progress, classic flow fades, and standard exit fades.
+- Use the cinematic renderer plus one libass overlay for exact frames, short preview MP4s, and final exports. Retain absolute lyric timing for clipped exports.
+- Add adjustable, fingerprint-cached stem mixes shared by visual preview and export.
+- Save lyric/timing/style data in backward-compatible .dero projects; import DeRo Sync version 2 JSON into a separate Visualizer project.
+- Keep the compact export status and optional diagnostics. Live lyric playback is a layout guide; exact preview/export use libass.
+- Test real FFmpeg lyric rendering and audio mixes, adapter fixtures, desktop edits, save/load, and cancellation. Real WhisperX model inference and physical NVIDIA encoding are unverified here.
+
 ## v0.1.33 — Song Workspace
 
 - Replace the compact Audio page with a DeRo Sync-style Song workspace and project overview.

@@ -49,10 +49,10 @@ class ExportControl:
                 if pipe is not None:pipe.close()
             with self.lock:self.processes.discard(proc)
 
-    def run(self,cmd,timeout=None,**kwargs):
+    def run(self,cmd,timeout=None,input=None,**kwargs):
         self.check()
         with self.process(subprocess.Popen(cmd,**kwargs)) as proc:
-            stdout,stderr=proc.communicate(timeout=timeout)
+            stdout,stderr=proc.communicate(input=input,timeout=timeout)
             self.check()
             return subprocess.CompletedProcess(cmd,proc.returncode,stdout,stderr)
 

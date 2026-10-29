@@ -1,0 +1,2 @@
+# Optional; install with Install_Lyric_Alignment.bat to preserve existing CUDA packages.
+whisperx>=3.3,<4

@@ -10,6 +10,7 @@ import tempfile
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check',action='store_true',help='Check prerequisites without installing anything')
+    parser.add_argument('--alignment',action='store_true',help='Install WhisperX while preserving PyTorch')
     args=parser.parse_args(argv)
     try:
         import torch
@@ -23,8 +24,8 @@ def main(argv=None):
     for name,version in versions.items():print(name+': '+version)
     print('CUDA available: '+str(torch.cuda.is_available()))
     if args.check:return 0
-    requirements=Path(__file__).resolve().with_name('requirements-separation.txt')
-    if not requirements.is_file():print('requirements-separation.txt is missing. Extract the complete app ZIP.');return 1
+    requirements=Path(__file__).resolve().with_name('requirements-alignment.txt' if args.alignment else 'requirements-separation.txt')
+    if not requirements.is_file():print(requirements.name+' is missing. Extract the complete app ZIP.');return 1
     with tempfile.TemporaryDirectory(prefix='dero-separation-install-') as folder:
         constraints=Path(folder)/'preserve-torch.txt'
         constraints.write_text(''.join(name+'=='+version+'\n' for name,version in versions.items()),encoding='utf-8')
@@ -32,6 +33,7 @@ def main(argv=None):
     if result.returncode:
         print('Installation failed. Existing torch/torchaudio versions were pinned; do not replace your working CUDA build to bypass a conflict.')
         return result.returncode
+    if args.alignment:return subprocess.run([sys.executable,'-c','import whisperx; print("WhisperX import OK")']).returncode
     return subprocess.run([sys.executable,'-m','demucs','--help']).returncode
 
 
