@@ -20,7 +20,7 @@ class SettingResetTests(unittest.TestCase):
     def test_individual_resets_and_linked_frequency_bounds(self):
         a=self.app;a.particle_speed.set(30);a.dust.set(700)
         a.reset_setting('particle_speed')
-        self.assertEqual(a.particle_speed.get(),1)
+        self.assertEqual(a.particle_speed.get(),DEFAULTS['particle_speed'])
         self.assertEqual(a.dust.get(),700)
         a.title.set('Edited');a.reset_setting('title')
         self.assertEqual(a.title.get(),'Original Song')
@@ -32,7 +32,7 @@ class SettingResetTests(unittest.TestCase):
         a=self.app;a.audio.set('music.wav');a.overlay_path.set('logo.png')
         a.particle_speed.set(30);a.spectrum_gain.set(2)
         a.reset_panel('Elements')
-        self.assertEqual(a.particle_speed.get(),1)
+        self.assertEqual(a.particle_speed.get(),DEFAULTS['particle_speed'])
         self.assertEqual(a.spectrum_gain.get(),2)
         self.assertEqual(a.audio.get(),'music.wav')
         self.assertEqual(a.overlay_path.get(),'logo.png')

@@ -18,7 +18,7 @@ class Settings:
     fps: int = 60
     title: str = "LOVE NIGHT"
     bars: int = 384
-    spectrum_mapping: str = 'Smooth'
+    spectrum_mapping: str = 'Stepped'
     spectrum_style: str = 'Classic bars'
     spectrum_mirrored: bool = True
     spectrum_density: float = 1.
@@ -26,29 +26,29 @@ class Settings:
     spectrum_color_end: str = '#35a5ff'
     frequency_min: float = 50.
     frequency_max: float = 10584.
-    frequency_scale: str = 'Logarithmic'
-    spectrum_gain: float = 1.0
-    spectrum_width: float = 0.82
+    frequency_scale: str = 'Linear'
+    spectrum_gain: float = 1.5
+    spectrum_width: float = 0.8
     spectrum_x: float = 0.5
-    spectrum_y: float = 0.906
-    title_size: float = 0.02
+    spectrum_y: float = 0.9
+    title_size: float = 0.12
     title_x: float = 0.5
-    title_y: float = 0.79
+    title_y: float = 0.42
     title_font: str = "Sans"
     title_bold: bool = False
     title_italic: bool = False
     title_uppercase: bool = False
     title_color: str = "#f8f9fd"
     artist: str = ""
-    artist_size: float = 0.015
+    artist_size: float = 0.08
     artist_x: float = 0.5
-    artist_y: float = 0.825
+    artist_y: float = 0.585
     artist_font: str = "Sans"
     artist_bold: bool = False
     artist_italic: bool = False
     artist_uppercase: bool = False
     artist_color: str = "#f8f9fd"
-    spectrum_height: float = 0.068
+    spectrum_height: float = 0.198
     particle_continuous: bool = True
     particles_enabled: bool = True
     particle_reactivity: str = 'Bass'
@@ -63,19 +63,19 @@ class Settings:
     overlay_y: float = .5
     overlay_opacity: float = 1.
     overlay_shape: str = 'Original'
-    particle_speed: float = 1.0
+    particle_speed: float = 20.0
     dust_count: int = 130
-    reactive_fraction: float = 0.25
-    sensitivity: float = 1.0
+    reactive_fraction: float = 0.24
+    sensitivity: float = 3.0
     background: str = ""
     seed: int = 42
     export_encoder: str = "Auto (GPU if available)"
 
 
-def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, frequency_min=50., frequency_max=None, frequency_scale='Logarithmic', spectrum_mapping='Smooth', cancel_check=None) -> np.ndarray:
+def audio_features(samples: np.ndarray, sample_rate: int, fps: int, bars: int, frequency_min=50., frequency_max=None, frequency_scale='Linear', spectrum_mapping='Stepped', cancel_check=None) -> np.ndarray:
     """Frequency-band energies (frames, bars) from mono 16/32bit decoded audio.
 
-    Log-spaced bands from 50 Hz to min(14000, sample_rate * .48),
+    Linear bands by default from 50 Hz to min(14000, sample_rate * .48),
     compressed and smoothed independently. Default 22050 Hz audio: 50-10584 Hz.
     Spectral extraction happens once, not in the rendering loop.
     """

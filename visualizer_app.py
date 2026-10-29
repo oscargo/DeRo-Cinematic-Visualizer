@@ -1,4 +1,4 @@
-"""DeRo Cinematic Visualizer v0.1.32 — Artist and Song Lookup.
+"""DeRo Cinematic Visualizer v0.1.33 — Song Workspace.
 
 Resizable dark desktop studio with project controls, highlighted media actions,
 and click-to-play timeline navigation. Preview has switchable sound; exports include audio.
@@ -9,6 +9,7 @@ import json
 import subprocess
 import sys
 import queue
+import re
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
@@ -20,8 +21,9 @@ from tkinter import filedialog, messagebox, ttk, colorchooser, font as tkfont
 from PIL import Image, ImageTk
 from visualizer_core import Settings, Renderer, audio_features
 from audio_io import load_audio, read_metadata, suggested_name
-from song_identity import find_names
-from export_timing import ExportTimer,ExportETA
+from song_identity import find_names,suggest_names,filename_names,review_names
+from song_separation import separate_song,MODELS
+from export_timing import ExportTimer,ExportETA,format_duration
 from export_control import ExportControl,ExportCancelled
 from export_diagnostics import ExportReport,report_json
 from export_video import export
@@ -33,7 +35,7 @@ from project_io import DEFAULTS, validate_settings, save_project, load_project
 class Application:
     def __init__(self, root):
         self.root=root
-        self.root.title('DeRo Cinematic Visualizer v0.1.32 - Artist and Song Lookup')
+        self.root.title('DeRo Cinematic Visualizer v0.1.33 - Song Workspace')
         self.root.geometry('1400x940')
         self.root.minsize(1040,820)
         self.root.resizable(True,True)
@@ -57,6 +59,13 @@ class Application:
         self.metadata_pending_path=None
         self.song_lookup_generation=0
         self.song_lookup_control=None
+        self.song_import_generation=0
+        self.separation_control=None
+        self.separation_started=None
+        self.song_workflow_status=tk.StringVar(value='Choose a song to begin.')
+        self.song_overview=tk.StringVar(value='No song loaded')
+        self.separation_status=tk.StringVar(value='Ready — choose a song or import existing stems.')
+        self.separation_elapsed=tk.StringVar(value='Elapsed: 00:00:00 · Total: —')
         self.export_control=None
         self.last_export_report=None
         self.close_when_export_done=False
@@ -70,7 +79,7 @@ class Application:
         self.export_time=tk.StringVar(value=self.export_timer.text())
         self.export_device=tk.StringVar(value="Encoding: — | Rendering: CPU")
         self.encoder_status=tk.StringVar(value="Encoder: checked when export starts")
-        self.status=tk.StringVar(value='Select an audio file. Requires FFmpeg available on PATH.')
+        self.status=tk.StringVar(value='Browse audio to import a song.')
         self.position=tk.DoubleVar(value=0)
         self.selection_start=tk.DoubleVar(value=0)
         self.selection_end=tk.DoubleVar(value=0)
@@ -203,7 +212,7 @@ class Application:
         ttk.Label(brand,textvariable=self.project_name,style='ProjectName.TLabel',
                   wraplength=240,justify='left').pack(anchor='w',pady=(8,0))
         project_actions=ttk.Frame(header,style='Shell.TFrame');project_actions.grid(row=0,column=2,sticky='e',padx=(14,0))
-        ttk.Label(project_actions,text='v0.1.32',style='Muted.TLabel').pack(anchor='e',pady=(0,8))
+        ttk.Label(project_actions,text='v0.1.33',style='Muted.TLabel').pack(anchor='e',pady=(0,8))
         project_buttons=ttk.Frame(project_actions,style='Shell.TFrame');project_buttons.pack(anchor='e')
         for label,command in (('New',self.new_project),('Open',self.open_project),
                               ('Save',self.save_project_file),('Save As',lambda:self.save_project_file(True))):
@@ -270,13 +279,13 @@ class Application:
         def section(text):
             nonlocal controls
             name={'01  /  SOURCE':'Audio','BACKDROP':'Backdrop','02  /  TITLE & LAYOUT':'Text',
-                  '03  /  SPECTRUM':'Visualizer','04  /  ATMOSPHERE':'Elements','05  /  OUTPUT':'Output'}[text]
+                  '03  /  SPECTRUM':'Visualizer','04  /  ATMOSPHERE':'Elements','05  /  OUTPUT':'Output','SEPARATION':'Separation'}[text]
             controls=ttk.Frame(content_root,padding=(10,4,10,14))
             self.inspector_pages[name]=controls
-            if name!='Audio':
+            if name not in ('Audio','Separation'):
                 ttk.Label(controls,text=name,style='Heading.TLabel').pack(anchor='w',pady=(5,8))
                 ttk.Button(controls,text='Reset this panel',command=lambda n=name:self.reset_panel(n)).pack(fill='x',pady=(0,12))
-            button=ttk.Button(rail,text=name,width=9,padding=(6,18),command=lambda n=name:self.show_inspector(n))
+            button=ttk.Button(rail,text='Song' if name=='Audio' else name,width=9,padding=(6,18),command=lambda n=name:self.show_inspector(n))
             button.pack(fill='x',pady=(0,8))
             self.navigation_buttons[name]=button
         def field(label,var,values=None):
@@ -286,12 +295,30 @@ class Application:
             widget.pack(fill='x')
             return widget
         section('01  /  SOURCE')
-        field('Music file',self.audio)
-        ttk.Button(controls,text='Choose music...',style='Music.TButton',command=self.browse_audio).pack(fill='x',pady=(6,10))
-        self.song_title_entry=field('Song title (first line)',self.title)
-        self.artist_name_entry=field('Artist name (second line)',self.artist)
-        self.find_song_button=ttk.Button(controls,text='Find artist and song',command=self.find_artist_and_song)
-        self.find_song_button.pack(fill='x',pady=(12,0))
+        ttk.Label(controls,text='Song information',style='Section.TLabel').pack(anchor='w',pady=(4,8))
+        ttk.Button(controls,text='Browse audio...',style='Music.TButton',command=self.browse_audio).pack(fill='x',pady=(0,10))
+        self.song_title_entry=field('Song title',self.title)
+        self.artist_name_entry=field('Artist name',self.artist)
+        field('Audio path',self.audio)
+        field('Song language',self.song_language,('Auto Detect','English','Spanish / Español'))
+        ttk.Button(controls,text='Retrieve artist and song metadata',command=self.retrieve_audio_metadata).pack(fill='x',pady=(12,5))
+        ttk.Button(controls,text='Review song information',command=self.review_current_song).pack(fill='x',pady=(0,5))
+        self.find_song_button=ttk.Button(controls,text='Find artist and song online',command=self.find_artist_and_song)
+        self.find_song_button.pack(fill='x')
+        section('SEPARATION')
+        ttk.Label(controls,text='Vocal separation',style='Section.TLabel').pack(anchor='w',pady=(4,8))
+        field('Model',self.demucs_model,tuple(MODELS))
+        self.start_separation_button=ttk.Button(controls,text='Separate song with Demucs',style='Music.TButton',command=self.start_separation)
+        self.start_separation_button.pack(fill='x',pady=(10,5))
+        self.cancel_separation_button=ttk.Button(controls,text='Cancel separation',command=self.cancel_separation,state='disabled')
+        self.cancel_separation_button.pack(fill='x')
+        ttk.Button(controls,text='Separation setup...',command=self.show_separation_setup).pack(fill='x',pady=(5,0))
+        field('Instrumental track',self.instrumental)
+        ttk.Button(controls,text='Browse instrumental...',command=lambda:self.browse_stem('instrumental')).pack(fill='x',pady=(5,6))
+        field('Vocal track',self.vocals)
+        ttk.Button(controls,text='Browse vocals...',command=lambda:self.browse_stem('vocals')).pack(fill='x',pady=(5,6))
+        self.audio_track_selector=field('Preview and export audio',self.audio_track,('Original mix','Instrumental','Vocals'))
+        self.audio_track_selector.bind('<<ComboboxSelected>>',lambda event:self.prepare_preview())
         section('BACKDROP')
         field('Background image / optional',self.background)
         ttk.Button(controls,text='Choose background...',style='Image.TButton',command=self.browse_background).pack(fill='x',pady=(6,2))
@@ -405,7 +432,7 @@ class Application:
         field('Video encoder',self.export_encoder,ENCODER_CHOICES)
         ttk.Label(controls,textvariable=self.encoder_status,style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=5)
         ttk.Label(controls,text='GPU accelerates MP4 encoding. Preview and visual rendering use CPU.',style='Muted.TLabel',wraplength=240).pack(anchor='w',pady=4)
-        ttk.Checkbutton(controls,text='Export completion tone',style='Switch.TCheckbutton',variable=self.completion_sound).pack(anchor='w',pady=(10,0))
+        ttk.Checkbutton(controls,text='Completion tone',style='Switch.TCheckbutton',variable=self.completion_sound).pack(anchor='w',pady=(10,0))
         ttk.Checkbutton(controls,text='Open video after export',style='Switch.TCheckbutton',variable=self.auto_open_export).pack(anchor='w',pady=(6,0))
         ttk.Button(controls,text='Test completion chime',command=self.play_completion_chime).pack(fill='x',pady=6)
         ttk.Button(controls,text='Quick test / 480p / 30 FPS',command=self.quick_test_preset).pack(fill='x',pady=(10,0))
@@ -462,6 +489,35 @@ class Application:
                 ('Play from start',lambda:self.start_playback(False)))):
             buttons.columnconfigure(i%3,weight=1)
             ttk.Button(buttons,text=label,command=cmd).grid(row=i//3,column=i%3,sticky='ew',padx=(0,6),pady=3)
+        self.build_song_workspaces(workspace)
+
+    def build_song_workspaces(self,workspace):
+        self.song_workspace=ttk.Frame(workspace,padding=20)
+        ttk.Label(self.song_workspace,text='Import song',style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(self.song_workspace,text='Browse audio, review its names, then begin a fresh project and separate vocals automatically.',
+                  style='Muted.TLabel',wraplength=560).pack(anchor='w',pady=(6,20))
+        ttk.Label(self.song_workspace,text='PROJECT OVERVIEW',style='Section.TLabel').pack(anchor='w')
+        ttk.Label(self.song_workspace,textvariable=self.song_overview,wraplength=560).pack(anchor='w',pady=(12,8))
+        ttk.Label(self.song_workspace,textvariable=self.song_workflow_status,style='Muted.TLabel',wraplength=560).pack(anchor='w',pady=(0,14))
+        for label in ('01  Import song','02  Separate vocals','03  Choose a background',
+                      '04  Style the song and artist','05  Preview the visualizer','06  Export MP4'):
+            ttk.Label(self.song_workspace,text=label,padding=(12,9)).pack(fill='x',pady=3)
+        ttk.Button(self.song_workspace,text='Open visualizer preview',command=self.open_visualizer_preview).pack(anchor='w',pady=(16,0))
+        self.separation_workspace=ttk.Frame(workspace,padding=20)
+        ttk.Label(self.separation_workspace,text='Vocal separation',style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(self.separation_workspace,textvariable=self.separation_status,wraplength=560).pack(anchor='w',pady=(12,8))
+        ttk.Label(self.separation_workspace,textvariable=self.separation_elapsed,style='Muted.TLabel').pack(anchor='w',pady=(0,8))
+        self.separation_progress=ttk.Progressbar(self.separation_workspace,mode='indeterminate')
+        self.separation_progress.pack(fill='x',pady=(0,12))
+        ttk.Label(self.separation_workspace,text='Processing details',style='Section.TLabel').pack(anchor='w',pady=(0,8))
+        log_frame=ttk.Frame(self.separation_workspace);log_frame.pack(fill='both',expand=True)
+        self.separation_log=tk.Text(log_frame,wrap='word',height=12,background='#080e19',foreground='#c9d7eb',state='disabled')
+        log_scroll=ttk.Scrollbar(log_frame,command=self.separation_log.yview)
+        self.separation_log.configure(yscrollcommand=log_scroll.set)
+        log_scroll.pack(side='right',fill='y');self.separation_log.pack(fill='both',expand=True)
+        ttk.Button(self.separation_workspace,text='Open visualizer preview',command=self.open_visualizer_preview).pack(anchor='w',pady=(12,0))
+        self.audio_track.trace_add('write',self.schedule_layout_preview)
+        self.show_inspector('Audio')
 
     def play_completion_chime(self):
         completion_tone(on_error=lambda error:self.q.put(('tone_error',error)))
@@ -551,12 +607,12 @@ class Application:
             'Restore all appearance, particle, playback, and output settings to defaults?\n\n'
             'Your selected files, song/artist names, project path, and export range will be kept.',parent=self.root):return
         for key in DEFAULTS:
-            if key not in ('audio','background','overlay_path','title','artist'):self.reset_setting(key)
+            if key not in ('audio','background','overlay_path','title','artist','instrumental','vocals','song_language'):self.reset_setting(key)
         self.status.set('All settings restored to defaults. Files, song names, and selection kept.')
 
     def install_reset_controls(self):
         variables={str(var):key for key,var in self.project_vars.items()}
-        skip={'audio','background','overlay_path','title','artist'}
+        skip={'audio','background','overlay_path','title','artist','song_language','demucs_model','instrumental','vocals','audio_track'}
         colors={'Title color...':'title_color','Artist color...':'artist_color',
             'Spectrum color...':'spectrum_color','Gradient end color...':'spectrum_color_end','Particle color...':'particle_color'}
         def walk(parent):
@@ -617,6 +673,13 @@ class Application:
         self.inspector_canvas.yview_moveto(0)
         self.inspector_canvas.after_idle(lambda:self.inspector_canvas.configure(scrollregion=self.inspector_canvas.bbox('all')))
 
+        if hasattr(self,'song_workspace'):
+            for overlay in (self.song_workspace,self.separation_workspace):overlay.place_forget()
+            overlay=self.song_workspace if name=='Audio' else self.separation_workspace if name=='Separation' else None
+            if overlay is not None:
+                overlay.place(relx=0,rely=0,relwidth=1,relheight=1)
+                overlay.tkraise()
+
     def reset_background(self):
         self.background.set('')
         if self.renderer is not None:
@@ -660,6 +723,9 @@ class Application:
         except (ValueError,tk.TclError):pass
         if self.renderer is None:return
         try:
+            if self.loaded_audio_path!=self.active_audio_path():
+                if not self.busy:self.prepare_preview()
+                return
             values=validate_settings({key:var.get() for key,var in self.project_vars.items()})
             if any(getattr(self.renderer.s,target)!=values[source] for target,source in
                    (('fps','fps'),('bars','bands'),('frequency_min','frequency_min'),('frequency_max','frequency_max'),('frequency_scale','frequency_scale'),('spectrum_mapping','spectrum_mapping'))):
@@ -745,9 +811,15 @@ class Application:
         name=os.path.basename(self.project_path) if self.project_path else self.filename_stem()
         display_name=os.path.splitext(name)[0] if self.project_path else name
         self.project_name.set(display_name if display_name!='Untitled' else 'Untitled project')
-        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.32 - Artist and Song Lookup')
+        if hasattr(self,'song_overview'):
+            title=self.title.get().strip();artist=self.artist.get().strip()
+            self.song_overview.set(title+'\n'+(artist or 'Artist not provided') if title else 'No song loaded')
+        self.root.title(f'{name} - DeRo Cinematic Visualizer v0.1.33 - Song Workspace')
 
     def clear_media(self):
+        self.song_import_generation+=1
+        self.particle_generation+=1;self.particle_request=None
+        if self.particle_future is not None:self.particle_future.cancel()
         self.invalidate_song_lookup()
         self.pause()
         self.preview_player.load(None)
@@ -763,6 +835,10 @@ class Application:
             self.fullscreen_canvas.configure(image='',text='Choose music to preview.')
         self.update_selection()
         self.last_export_path=None
+        self.song_workflow_status.set('Choose a song to begin.')
+        self.separation_status.set('Ready — choose a song or import existing stems.')
+        self.separation_elapsed.set('Elapsed: 00:00:00 · Total: —')
+        self.separation_progress.stop();self.separation_progress.configure(mode='determinate',value=0)
         self.notification_state()
 
     def new_project(self):
@@ -811,6 +887,7 @@ class Application:
         self.pending_selection=selection
         self.saved_project_state=self.project_state()
         self.update_project_title()
+        self.song_workflow_status.set('Project loaded. Review its audio and stem paths before continuing.')
         missing=[key for key in ('audio','background','overlay_path') if values[key] and (key!='overlay_path' or values['overlay_enabled']) and not os.path.isfile(values[key])]
         if missing:
             self.status.set('Project opened. Missing media: '+', '.join(missing)+'. Choose replacement files in the sidebar.')
@@ -820,6 +897,10 @@ class Application:
 
     def close_project(self):
         if self.close_when_export_done:return
+        if self.separation_control is not None:
+            if messagebox.askyesno('Cancel separation and close?', 'Cancel vocal separation and close? Unsaved project changes will not be saved.',parent=self.root):
+                self.close_when_export_done=True;self.cancel_separation()
+            return
         if self.confirm_replace():
             if self.export_control is not None:
                 self.close_when_export_done=True
@@ -859,7 +940,7 @@ class Application:
             return
         window=tk.Toplevel(self.root)
         self.fullscreen_window=window
-        window.title('DeRo / Artist and Song Lookup')
+        window.title('DeRo / Song Workspace')
         window.configure(background='black')
         window.geometry(f'{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0')
         window.attributes('-fullscreen',True)
@@ -939,22 +1020,151 @@ class Application:
         return os.getcwd()
 
     def browse_audio(self):
-        p=filedialog.askopenfilename(initialdir=self._browse_initial_folder('music',self.audio.get()),
+        if self.busy:
+            self.status.set('Finish or cancel the current task before importing another song.')
+            return
+        path=filedialog.askopenfilename(initialdir=self._browse_initial_folder('music',self.audio.get()),
             filetypes=[('Audio files','*.wav *.mp3 *.flac *.m4a *.aac *.ogg *.wma'),('All files','*.*')])
-        if p:
-            self.invalidate_song_lookup()
-            self._remember_folder('music',p)
-            self.audio.set(p)
-            self.metadata_pending_path=p
-            self.pause()
-            self.samples=None;self.features=None;self.renderer=None
-            self.prepare_preview()
+        if not path or path==self.audio.get().strip():return
+        self.invalidate_song_lookup()
+        self.read_local_song_information(path,'import')
+
+    def read_local_song_information(self,path,mode):
+        if not os.path.isfile(path):
+            self.status.set('Choose an existing music file first.');return
+        self.song_import_generation+=1;generation=self.song_import_generation
+        self.status.set('Reading local song information...')
+        def worker():
+            try:
+                tags=read_metadata(path)
+                file_artist,file_title=filename_names(path)
+                original_title=tags['title'] or file_title
+                original_artist=tags['artist'] or file_artist
+                title,artist=review_names(original_title,original_artist)
+                self.q.put(('local_song_information',(generation,path,mode,original_title,original_artist,title,artist)))
+            except Exception as exc:self.q.put(('song_information_error',(generation,str(exc))))
+        threading.Thread(target=worker,daemon=True).start()
+
+    def retrieve_audio_metadata(self):
+        self.read_local_song_information(self.audio.get().strip(),'retrieve')
+
+    def review_current_song(self):
+        path=self.audio.get().strip()
+        if not os.path.isfile(path):self.status.set('Choose a music file first.');return
+        title,artist=review_names(self.title.get(),self.artist.get())
+        self.confirm_song_information(path,self.title.get(),self.artist.get(),title,artist,'review')
+
+    def confirm_song_information(self,path,original_title,original_artist,title,artist,mode):
+        window=tk.Toplevel(self.root);window.title('Confirm song information')
+        window.transient(self.root);window.geometry('580x320');window.minsize(520,300)
+        content=ttk.Frame(window,padding=18);content.pack(fill='both',expand=True)
+        note=('Review the names before starting a new project and automatic vocal separation.' if mode=='import' else
+              'Review or edit the song title and artist name. The original audio file is unchanged.')
+        ttk.Label(content,text=note,wraplength=530).pack(anchor='w',pady=(0,12))
+        song_value=tk.StringVar(value=title);artist_value=tk.StringVar(value=artist)
+        ttk.Label(content,text='Song title',style='Muted.TLabel').pack(anchor='w')
+        ttk.Entry(content,textvariable=song_value).pack(fill='x',pady=(4,10))
+        ttk.Label(content,text='Artist name',style='Muted.TLabel').pack(anchor='w')
+        ttk.Entry(content,textvariable=artist_value).pack(fill='x',pady=(4,10))
+        message=tk.StringVar(value='Source: local audio tags or filename.')
+        ttk.Label(content,textvariable=message,style='Muted.TLabel',wraplength=530).pack(anchor='w')
+        buttons=ttk.Frame(content);buttons.pack(side='bottom',fill='x',pady=(12,0))
+        def restore():song_value.set(original_title);artist_value.set(original_artist)
+        def accept():
+            if not song_value.get().strip():message.set('Enter a song title before continuing.');return
+            if mode=='import':
+                if not os.path.isfile(path):message.set('The selected audio file is no longer available.');return
+                if not self.confirm_replace():return
+                names=(song_value.get().strip(),artist_value.get().strip())
+                window.destroy();self.import_confirmed_song(path,*names)
+            else:
+                self.metadata_pending_path=None
+                self.title.set(song_value.get().strip());self.artist.set(artist_value.get().strip())
+                self.reset_text_defaults={'title':self.title.get(),'artist':self.artist.get()}
+                self.status.set('Song information updated.');window.destroy()
+        def cancel():
+            self.status.set('Song import canceled. The current project is unchanged.' if mode=='import' else 'Song information was left unchanged.')
+            window.destroy()
+        ttk.Button(buttons,text='Restore Original',command=restore).pack(side='left')
+        ttk.Button(buttons,text='OK — Continue',command=accept).pack(side='right')
+        ttk.Button(buttons,text='Cancel',command=cancel).pack(side='right',padx=8)
+        window.protocol('WM_DELETE_WINDOW',cancel)
+        window.grab_set()
+
+    def import_confirmed_song(self,path,title,artist):
+        self.busy=True # suppress track-change callbacks during the fresh-project reset
+        self.clear_media()
+        for key,value in DEFAULTS.items():self.project_vars[key].set(value)
+        self.audio.set(path);self.title.set(title);self.artist.set(artist)
+        self.project_path=None;self.saved_project_state=None
+        self.reset_text_defaults={'title':title,'artist':artist}
+        self.preview_cache=PreviewCache()
+        self.metadata_pending_path=None
+        self.song_workflow_status.set('Song imported. Starting vocal separation...')
+        self._remember_folder('music',path);self.update_project_title()
+        self.busy=False
+        self.show_inspector('Separation')
+        self.start_separation()
+
+    def open_visualizer_preview(self):
+        self.show_inspector('Text')
+        if not self.busy and self.renderer is None:self.prepare_preview()
+
+    def active_audio_path(self):
+        choice=self.audio_track.get()
+        path=(self.instrumental.get() if choice=='Instrumental' else self.vocals.get() if choice=='Vocals' else self.audio.get()).strip()
+        if not path or not os.path.isfile(path):raise ValueError('The selected '+choice.lower()+' audio is missing. Choose or generate its file first.')
+        return path
+
+    def browse_stem(self,kind):
+        if self.busy:self.status.set('Finish or cancel the current task first.');return
+        path=filedialog.askopenfilename(filetypes=[('Audio files','*.wav *.mp3 *.flac *.m4a *.ogg'),('All files','*.*')])
+        if path:
+            self.project_vars[kind].set(path)
+            self.separation_status.set('Existing '+('instrumental' if kind=='instrumental' else 'vocal')+' track imported.')
+            self.song_workflow_status.set('Existing stems can be used for preview and export.')
+
+    def show_separation_setup(self):
+        messagebox.showinfo('Vocal separation setup',
+            'Use the same Python 3.12 environment that runs DeRo Sync.\n\n'
+            'If Demucs is missing, run Install_Vocal_Separation.bat beside this application. '
+            'It checks your existing PyTorch installation before installing Demucs.\n\n'
+            'Keep your working NVIDIA CUDA/PyTorch build. Models download on first use unless already cached.',parent=self.root)
+
+    def start_separation(self):
+        if self.busy:self.status.set('Finish or cancel the current task first.');return
+        path=self.audio.get().strip()
+        if not os.path.isfile(path):self.status.set('Choose a music file first.');return
+        if not shutil.which('ffmpeg'):self.status.set('FFmpeg is required for vocal separation.');return
+        control=ExportControl();self.separation_control=control;self.separation_started=time.monotonic()
+        self.busy=True;self.pause();self.show_inspector('Separation')
+        self.start_separation_button.configure(state='disabled');self.cancel_separation_button.configure(state='normal')
+        self.separation_progress.configure(mode='indeterminate',value=0)
+        self.separation_progress.start(12)
+        self.separation_log.configure(state='normal');self.separation_log.delete('1.0','end');self.separation_log.configure(state='disabled')
+        model=MODELS[self.demucs_model.get()]
+        self.separation_status.set('Starting '+model+' vocal separation...')
+        self.separation_elapsed.set('Elapsed: 00:00:00 · Total: running...')
+        self.status.set('Separating vocals...')
+        self.song_workflow_status.set('Vocal separation is running.')
+        def worker():
+            try:
+                tracks=separate_song(path,model=model,control=control,emit=lambda text:self.q.put(('separation_log',text)))
+                self.q.put(('separation_done',(path,tracks,None,False)))
+            except ExportCancelled:self.q.put(('separation_done',(path,None,None,True)))
+            except Exception as exc:self.q.put(('separation_done',(path,None,str(exc),False)))
+        threading.Thread(target=worker,daemon=True).start()
+
+    def cancel_separation(self):
+        if self.separation_control is not None and self.separation_control.cancel():
+            self.cancel_separation_button.configure(state='disabled')
+            self.separation_status.set('Canceling vocal separation...')
 
     def invalidate_song_lookup(self):
         self.song_lookup_generation+=1
         if self.song_lookup_control is not None:self.song_lookup_control.cancel()
         self.song_lookup_control=None
-        self.find_song_button.configure(state='normal',text='Find artist and song')
+        self.find_song_button.configure(state='normal',text='Find artist and song online')
 
     def find_artist_and_song(self):
         path=self.audio.get().strip()
@@ -1058,9 +1268,8 @@ class Application:
 
     def prepare_preview(self):
         if self.busy:return
-        path=self.audio.get().strip()
-        if not os.path.isfile(path):
-            self.status.set('Select a valid music file first.');return
+        try:path=self.active_audio_path()
+        except ValueError as exc:self.status.set(str(exc));return
         try:
             validate_settings({key:var.get() for key,var in self.project_vars.items()})
             settings=self.settings(preview=True)
@@ -1068,12 +1277,13 @@ class Application:
             self.status.set(str(exc));return
         self.pause()
         self.busy=True;self.status.set('Analyzing music frequencies...')
-        metadata_pending=path==self.metadata_pending_path
+        metadata_pending=self.audio.get().strip()==self.metadata_pending_path
+        metadata_path=self.audio.get().strip()
         cache=self.preview_cache
         def worker():
             try:
                 if metadata_pending:
-                    self.q.put(('metadata',(path,read_metadata(path))))
+                    self.q.put(('metadata',(metadata_path,read_metadata(metadata_path))))
                 samples,sr,playback,features=cache.prepare(path,settings,load_audio,decode_preview,audio_features)
                 renderer=Renderer(settings,features)
                 self.q.put(('ready',(samples,sr,features,renderer,path,playback)))
@@ -1269,7 +1479,9 @@ class Application:
         if self.busy:return
         if not os.path.isfile(self.audio.get()):return messagebox.showerror('Audio missing','Select a music file first.')
         if not shutil.which('ffmpeg'):return messagebox.showerror('FFmpeg missing','Install FFmpeg and add it to PATH.')
-        if self.loaded_audio_path != self.audio.get().strip():
+        try:active_path=self.active_audio_path()
+        except ValueError as exc:return messagebox.showerror('Missing audio',str(exc))
+        if self.loaded_audio_path != active_path:
             self.prepare_preview()
             return messagebox.showinfo('Analyze music','Wait for the preview, then choose the export range.')
         try:
@@ -1278,7 +1490,7 @@ class Application:
             settings=self.settings()
         except (ValueError,tk.TclError) as exc:
             return messagebox.showerror('Invalid selection',str(exc))
-        audio_path=self.audio.get().strip()
+        audio_path=active_path
         out=filedialog.asksaveasfilename(
             initialdir=self._browse_initial_folder('export', self.last_export_path or ''),
             initialfile=self.filename_stem()+'.mp4',defaultextension='.mp4', filetypes=[('MP4 video','*.mp4')])
@@ -1286,7 +1498,7 @@ class Application:
         # A chosen destination counts as the last used folder even if export fails.
         self._remember_folder('export', out)
         self.last_export_folder=os.path.dirname(os.path.abspath(out))
-        if os.path.abspath(out)==os.path.abspath(self.audio.get()):return messagebox.showerror('Invalid path','Export path must differ from input.')
+        if os.path.normcase(os.path.realpath(out)) in tuple(os.path.normcase(os.path.realpath(p)) for p in (self.audio.get(),audio_path,self.instrumental.get(),self.vocals.get()) if p):return messagebox.showerror('Invalid path','Export path must differ from input.')
         self.pause()
         self.busy=True
         self.notification_state()
@@ -1397,11 +1609,62 @@ class Application:
         try:
             while True:
                 kind,data=self.q.get_nowait()
-                if kind=='song_lookup':
+                if kind=='local_song_information':
+                    generation,path,mode,original_title,original_artist,title,artist=data
+                    if generation!=self.song_import_generation:continue
+                    if mode=='retrieve':
+                        if path!=self.audio.get().strip():continue
+                        if title:self.title.set(title)
+                        if artist:self.artist.set(artist)
+                        self.status.set('Song and artist metadata retrieved. The audio file is unchanged.')
+                    else:self.confirm_song_information(path,original_title,original_artist,title,artist,mode)
+                elif kind=='song_information_error':
+                    generation,error=data
+                    if generation==self.song_import_generation:self.status.set('Could not read song information: '+error)
+                elif kind=='separation_log':
+                    if data.startswith('Preparing stereo'):self.separation_status.set('Preparing compatible audio...')
+                    elif data.startswith('Running '):self.separation_status.set('Processing — '+data.split('.')[0])
+                    elif data.startswith('Validating '):
+                        self.separation_status.set('Validating both stem files...')
+                        self.separation_progress.configure(mode='indeterminate');self.separation_progress.start(12)
+                    percentages=re.findall(r'(?<!\d)(\d{1,3}(?:\.\d+)?)\s*%',data)
+                    if percentages:
+                        self.separation_progress.stop()
+                        self.separation_progress.configure(mode='determinate',value=min(100,max(0,float(percentages[-1]))))
+                        self.separation_status.set('Demucs reported stage: '+percentages[-1]+'% (not overall completion)')
+                    self.separation_log.configure(state='normal');self.separation_log.insert('end',data+'\n')
+                    # Bound UI log memory on long model downloads/runs.
+                    if int(self.separation_log.index('end-1c').split('.')[0])>1500:self.separation_log.delete('1.0','501.0')
+                    self.separation_log.see('end');self.separation_log.configure(state='disabled')
+                elif kind=='separation_done':
+                    path,tracks,error,canceled=data
+                    self.busy=False;self.separation_control=None;self.separation_progress.stop()
+                    self.separation_progress.configure(mode='determinate',value=100 if tracks else 0)
+                    self.start_separation_button.configure(state='normal');self.cancel_separation_button.configure(state='disabled')
+                    elapsed=time.monotonic()-self.separation_started
+                    duration=format_duration(elapsed)
+                    self.separation_elapsed.set('Elapsed: '+duration+' · Total: '+duration)
+                    if canceled:
+                        self.separation_status.set(f'Canceled after {elapsed:.1f}s. The original song is unchanged.')
+                        self.song_workflow_status.set('Vocal separation canceled. You can restart it or import stems.')
+                    elif error:
+                        self.separation_status.set('Separation failed. See processing details below.')
+                        self.separation_log.configure(state='normal');self.separation_log.insert('end','\nERROR: '+error+'\n')
+                        self.separation_log.see('end');self.separation_log.configure(state='disabled')
+                        self.song_workflow_status.set('Separation needs attention. Import stems or retry after resolving the error.')
+                        self.status.set('Vocal separation failed. See Separation for details.')
+                    elif path==self.audio.get().strip():
+                        self.instrumental.set(tracks[0]);self.vocals.set(tracks[1])
+                        self.separation_status.set(f'Complete in {elapsed:.1f}s. Instrumental and vocal tracks are ready.')
+                        self.song_workflow_status.set('Song imported and stems ready. Continue to the visualizer.')
+                        self.status.set('Vocal separation complete.')
+                        if self.completion_sound.get():self.play_completion_chime()
+                        self.show_inspector('Text');self.prepare_preview()
+                elif kind=='song_lookup':
                     generation,path,suggestions,notice,error=data
                     if generation!=self.song_lookup_generation:continue
                     self.song_lookup_control=None
-                    self.find_song_button.configure(state='normal',text='Find artist and song')
+                    self.find_song_button.configure(state='normal',text='Find artist and song online')
                     if path!=self.audio.get().strip():continue
                     if error:self.status.set('Could not read the song information: '+error)
                     else:
@@ -1489,9 +1752,11 @@ class Application:
                         # another video player takes focus and starts its audio.
                         self.root.after(2000,lambda path=self.last_export_path:self.open_completed_export(path))
         except queue.Empty:pass
-        if getattr(self,'close_when_export_done',False) and self.export_control is None:
+        if getattr(self,'close_when_export_done',False) and self.export_control is None and getattr(self,'separation_control',None) is None:
             self.destroy_application()
             return
+        if getattr(self,'separation_control',None) is not None:
+            self.separation_elapsed.set('Elapsed: '+format_duration(time.monotonic()-self.separation_started)+' · Total: running...')
         if getattr(self,'export_timer',None) is not None:
             self.export_time.set(self.export_timer.text())
         if getattr(self,'export_eta',None) is not None and not self.cancel_requested:

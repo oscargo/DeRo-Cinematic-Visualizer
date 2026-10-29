@@ -34,7 +34,7 @@ class FolderMemoryTests(unittest.TestCase):
             app=Application.__new__(Application);app.folder_preferences={};app.project_path=None
             app.confirm_replace=Mock(return_value=True);app.clear_media=Mock()
             app.project_vars={key:Mock() for key in DEFAULTS}
-            app.selection_start=Mock();app.selection_end=Mock();app.status=Mock()
+            app.selection_start=Mock();app.selection_end=Mock();app.status=Mock();app.song_workflow_status=Mock()
             app.project_state=Mock(return_value=(DEFAULTS,[0,None]));app.update_project_title=Mock()
             with patch.object(Application,'_preferences_file',return_value=str(prefs)):
                 with patch('visualizer_app.filedialog.askopenfilename',return_value=str(project)):

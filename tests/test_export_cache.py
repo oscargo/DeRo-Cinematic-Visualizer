@@ -28,7 +28,7 @@ class ExportCacheTests(unittest.TestCase):
             snapshot=cache.snapshot()
             self.assertTrue(snapshot.matches(str(path),replace(settings,width=640,height=360,title='Different')))
             for key,value in [('fps',30),('bars',32),('frequency_min',60),
-                              ('frequency_max',18000),('frequency_scale','Linear'),('spectrum_mapping','Stepped')]:
+                              ('frequency_max',18000),('frequency_scale','Logarithmic'),('spectrum_mapping','Smooth')]:
                 self.assertFalse(snapshot.matches(str(path),replace(settings,**{key:value})))
             cache.features=np.ones((1,384))
             self.assertIsNot(snapshot.features,cache.features)
@@ -70,7 +70,10 @@ class ExportCacheTests(unittest.TestCase):
         app=Mock()
         app.export_timer=ExportTimer()
         app.busy=False;app.audio.get.return_value='source.wav'
+        app.instrumental.get.return_value=''
+        app.vocals.get.return_value=''
         app.loaded_audio_path='source.wav'
+        app.active_audio_path.return_value='source.wav'
         app.selection_bounds.return_value=(0,1)
         app.project_vars={key:Mock(get=Mock(return_value=value)) for key,value in DEFAULTS.items()}
         app.settings.return_value=Settings();app.progress={}

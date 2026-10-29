@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.33 — Song Workspace
+
+- Replace the compact Audio page with a DeRo Sync-style Song workspace and project overview.
+- Add import confirmation with Restore Original, Cancel, and OK; check unsaved work before preparing a fresh project.
+- Add local metadata retrieval, local name review, saved song-language selection, and retain online artist/song lookup.
+- Remove duplicate artist prefixes when title and artist differ only by an honorific, including the Lauryn Hill / Ms. Lauryn Hill case.
+- Start Demucs automatically after confirmed import; add a Separation workspace with model choice, progress/logs, cancellation, and stem import.
+- Allow the original mix, instrumental, or vocals to drive preview and MP4 export; save stem references in projects.
+- Add a separation dependency setup helper that checks existing PyTorch/CUDA instead of replacing it automatically.
+- Promote the supplied composition preset to app/renderer defaults: Linear frequency spacing, Stepped peaks, and its particle, text, and spectrum settings.
+- Keep source audio, previous stems, media paths, song identity, and selected ranges out of global defaults.
+- Verify import/review/reset/stem workflow and real FFmpeg preparation; actual Demucs model download is blocked by cloud network policy.
+
 ## v0.1.32 — Artist and Song Lookup
 
 - Match the Audio panel layout: music file, Choose music, song title, artist name, and one lookup button.

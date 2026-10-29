@@ -26,14 +26,14 @@ class SpectrumStylesTests(unittest.TestCase):
 
     def test_narrow_bass_bands_are_not_copied_from_one_fft_bin(self):
         sr=22050;t=np.arange(sr)/sr
-        features=audio_features(np.sin(2*np.pi*73*t),sr,10,384)[5]
+        features=audio_features(np.sin(2*np.pi*73*t),sr,10,384,frequency_scale='Logarithmic',spectrum_mapping='Smooth')[5]
         # These early narrow bands used to round to the same FFT bin.
         self.assertGreater(len(np.unique(np.round(features[:6],5))),4)
         self.assertTrue(np.isfinite(features).all())
 
     def test_high_density_interpolates_instead_of_duplicating_bars(self):
         renderer=Renderer(Settings(width=1920,height=1080,bars=16,dust_count=0,title='',
-            spectrum_mirrored=False,spectrum_density=2,spectrum_height=.3))
+            spectrum_mirrored=False,spectrum_density=2,spectrum_height=.3,spectrum_mapping='Smooth',spectrum_width=.82))
         layer=np.asarray(renderer.spectrum_layer(np.linspace(.1,.9,16)))
         count=32;span=1920*.82;step=span/(count+2)
         xs=np.round(960+(np.arange(count)-(count-1)/2)*step).astype(int)
@@ -42,7 +42,7 @@ class SpectrumStylesTests(unittest.TestCase):
 
     def test_selectable_peak_shapes_and_project_persistence(self):
         sr=22050;t=np.arange(sr)/sr;signal=np.sin(2*np.pi*73*t)
-        results={shape:audio_features(signal,sr,10,384,spectrum_mapping=shape)[5]
+        results={shape:audio_features(signal,sr,10,384,frequency_scale='Logarithmic',spectrum_mapping=shape)[5]
                  for shape in ('Stepped','Balanced','Smooth')}
         self.assertEqual(len(np.unique(np.round(results['Stepped'][:6],5))),1)
         self.assertGreater(len(np.unique(np.round(results['Smooth'][:6],5))),4)

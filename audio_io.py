@@ -15,15 +15,27 @@ def load_audio(path, sample_rate=22050, ffmpeg='ffmpeg', cancel=None):
 
 
 def read_metadata(path, ffprobe='ffprobe', cancel=None):
-    """Read only title/artist tags; do not invent artist information."""
+    """DeRo Sync order: local tags first, FFprobe fills gaps; no invented names."""
     import json
+    values={'title':'','artist':''}
+    if cancel is not None:cancel.check()
+    try:
+        from mutagen import File as MutagenFile
+        tags=MutagenFile(str(path),easy=True)
+        if tags:
+            for key in values:
+                items=tags.get(key) or []
+                if items:values[key]=str(items[0]).strip()
+    except Exception:pass
+    if cancel is not None:cancel.check()
+    if all(values.values()):return values
     try:
         cmd=[ffprobe,'-v','error','-show_entries',
              'format_tags=title,artist:stream=codec_type:stream_tags=title,artist',
-             '-of','json',path]
+             '-of','json',str(path)]
         proc=(cancel.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=10) if cancel is not None else
               subprocess.run(cmd,capture_output=True,text=True,timeout=10))
-        if proc.returncode:return {'title':'','artist':''}
+        if proc.returncode:return values
         data=json.loads(proc.stdout)
         tags={}
         for stream in data.get('streams',[]):
@@ -31,9 +43,10 @@ def read_metadata(path, ffprobe='ffprobe', cancel=None):
                 tags.update({k.lower():v for k,v in stream.get('tags',{}).items()})
                 break
         tags.update({k.lower():v for k,v in data.get('format',{}).get('tags',{}).items()})
-        return {key:str(tags.get(key,'')).strip() for key in ('title','artist')}
-    except (OSError,ValueError,subprocess.TimeoutExpired):
-        return {'title':'','artist':''}
+        for key in values:
+            if not values[key]:values[key]=str(tags.get(key) or '').strip()
+        return values
+    except (OSError,ValueError,subprocess.TimeoutExpired):return values
 
 
 def suggested_name(artist, song):

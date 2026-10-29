@@ -1,16 +1,17 @@
-# DeRo Cinematic Visualizer v0.1.32 — Artist and Song Lookup
+# DeRo Cinematic Visualizer v0.1.33 — Song Workspace
 
-A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 75% independently drifting particles, 25% mildly music-reactive. Output MP4 includes original music.
+A standalone, reusable Python 3.12 music visualizer. It renders cinematic floating dust (irregular flecks and small streaks) and a bottom-center **horizontally mirrored** fine-band spectrum. Defaults: 76% independently drifting particles, 24% mildly music-reactive. Output MP4 includes the selected audio (original mix by default).
 
 ## Setup (Windows)
 1. Ensure **Python 3.12** and **FFmpeg** are installed. Put `C:\FFmpeg\bin` on PATH or otherwise make `ffmpeg` available.
-2. Keep all files together and double-click **Launch_DeRo_Visualizer.bat**. It checks and installs `numpy` and `Pillow` if needed.
-3. Choose a music file (MP3, WAV, FLAC, M4A, etc). You may choose a JPG/PNG background, or leave blank for the dark navy gradient.
-4. Adjust title, number of dust particles, reactive %, and sensitivity. Click **Refresh Preview** after changing settings, and **Export MP4** when ready.
-5. Defaults: 1920×1080 / 60 FPS. 30 FPS and smaller resolutions are selectable.
+2. Keep all files together and double-click **Launch_DeRo_Visualizer.bat**. It checks and installs the required Python packages if needed.
+3. In **Song**, browse audio and confirm the names. This starts a fresh project and Demucs vocal separation using your existing DeRo Sync Python environment. If Demucs is missing, use **Separation setup** or import existing stems. **Open visualizer preview** remains available for the original mix.
+4. Choose a JPG/PNG background, or leave blank for the dark navy gradient.
+5. Adjust title, number of dust particles, reactive %, and sensitivity. Click **Refresh Preview** after changing settings, and **Export MP4** when ready.
+6. Defaults: 1920×1080 / 60 FPS. 30 FPS and smaller resolutions are selectable.
 
 **Current limitations:**
-- Preview sound is optional: use **Sound on** beside the playback timeline. MP4 exports include music regardless of this preview toggle.
+- Preview sound is optional: use **Sound on** beside the playback timeline. MP4 exports include the selected audio regardless of this preview toggle.
 - Background supports **still images or built-in navy gradient only**, not background video yet. Adding video compositing later should preserve the renderer API.
 - MP4 encoding can use NVIDIA NVENC; CPU rendering and particle simulation can still limit full-length 1080p60 export speed.
 - The exported visualization is a best-effort aesthetic interpretation, **not a pixel-perfect recreation of the reference clip**.
@@ -66,11 +67,11 @@ Visuals retain the original song timestamps, so clips match the full-song animat
 Audio analysis still covers the full song to preserve spectrum scaling and particle trajectories.
 
 ## Version and package naming
-Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.33`.
+Continue the existing `v0.1.x` sequence; the next incremental update is `v0.1.34`.
 Each update has a short descriptive name in the app title, README, and changelog.
 Git tags use `vMAJOR.MINOR.PATCH`. Distribution ZIPs and their single top-level
 folder use `DeRo_Cinematic_Visualizer_vMAJOR_MINOR_PATCH_Feature_Name`.
-This release: `DeRo_Cinematic_Visualizer_v0_1_32_Artist_and_Song_Lookup.zip`.
+This release: `DeRo_Cinematic_Visualizer_v0_1_33_Song_Workspace.zip`.
 
 ## v0.1.7 — Midnight Studio
 A dark studio interface with an organized composition sidebar, blue accents,
@@ -166,7 +167,7 @@ default to Artist - Song.
 Every released version from v0.1.6 onward has its own descriptively named folder
 at the repository root, following the same convention as Voice FX Studio.
 Older tagged releases are preserved as snapshots; the newest folder is
-**DeRo_Cinematic_Visualizer_v0_1_32_Artist_and_Song_Lookup**. Open that folder and run
+**DeRo_Cinematic_Visualizer_v0_1_33_Song_Workspace**. Open that folder and run
 `Launch_DeRo_Visualizer.bat`, or download its matching ZIP from `releases/`.
 The app files at the repository root remain available for the existing development workflow.
 
@@ -518,3 +519,33 @@ new Python package is required. Service requests are rate-limited and have a tim
 See [artist and song lookup](docs/song_lookup.md) for behavior and validation limits.
 
 [Download DeRo_Cinematic_Visualizer_v0_1_32_Artist_and_Song_Lookup.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_32_Artist_and_Song_Lookup.zip)
+
+
+## v0.1.33 — Song Workspace
+
+**Song** now follows the uploaded DeRo Sync Song-tab workflow. Browse audio reads
+local tags/filename information and opens confirmation with Restore Original,
+Cancel, and OK. Cancel preserves the current project. Continuing checks unsaved
+work, creates a fresh visualizer project, and starts vocal separation automatically.
+The Song workspace contains editable title/artist/path, language selection, local
+metadata retrieval, local review, online lookup, and a project overview.
+
+**Separation** provides the fine-tuned HTDemucs default and standard model,
+processing details, cancellation, and existing-stem import. On success the app
+continues to the visualizer preview. On failure it stays in Separation. You can
+also open the visualizer preview with the original audio or import existing stems.
+Choose Original mix, Instrumental, or Vocals for preview and export there.
+
+Demucs must be installed in the same Python 3.12 environment as the app. The
+supplied DeRo Sync launcher uses that same interpreter. If needed, run
+`Install_Vocal_Separation.bat`; it checks for your existing PyTorch/torchaudio
+before installing Demucs. Keep your working CUDA installation. Models download
+on first use unless already cached. See [Song workspace and separation](docs/song_workspace.md).
+
+The supplied composition preset is now the startup/New-project/Reset default.
+**Frequency spacing is Linear**, with Stepped peaks, 20x particle speed, 24% reactive
+particles, response 3.0, and the supplied song/artist and spectrum layout. Media
+paths, song identity, and the export selection remain per-project. See
+[composition defaults](docs/composition_defaults.md).
+
+[Download DeRo_Cinematic_Visualizer_v0_1_33_Song_Workspace.zip](https://github.com/oscargo/DeRo-Cinematic-Visualizer/raw/refs/heads/main/releases/DeRo_Cinematic_Visualizer_v0_1_33_Song_Workspace.zip)

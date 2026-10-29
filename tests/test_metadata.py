@@ -42,3 +42,13 @@ class MetadataTests(unittest.TestCase):
             subprocess.run(['ffmpeg','-v','error','-f','lavfi','-i','sine=duration=0.2',str(plain)],check=True)
             self.assertEqual(read_metadata(str(plain)),{'title':'','artist':''})
         self.assertEqual(read_metadata('missing.wav'),{'title':'','artist':''})
+
+    def test_mutagen_has_priority_and_ffprobe_only_fills_missing_tags(self):
+        from unittest.mock import Mock,patch
+        import json
+        with patch('mutagen.File',return_value={'title':['Local title'],'artist':['Local artist']}),patch('audio_io.subprocess.run') as probe:
+            self.assertEqual(read_metadata('music.mp3'),{'title':'Local title','artist':'Local artist'})
+            probe.assert_not_called()
+        response=Mock(returncode=0,stdout=json.dumps({'format':{'tags':{'title':'Other title','artist':'Recovered artist'}}}))
+        with patch('mutagen.File',return_value={'title':['Local title']}),patch('audio_io.subprocess.run',return_value=response):
+            self.assertEqual(read_metadata('music.mp3'),{'title':'Local title','artist':'Recovered artist'})

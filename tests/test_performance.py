@@ -45,7 +45,7 @@ class PerformanceTests(unittest.TestCase):
             prepare();prepare()
             self.assertEqual((load.call_count,decode.call_count,analyze.call_count),(1,1,1))
             for field,value in [('fps',30),('bars',32),('frequency_min',60),
-                                ('frequency_scale','Linear'),('spectrum_mapping','Stepped')]:
+                                ('frequency_scale','Logarithmic'),('spectrum_mapping','Smooth')]:
                 setattr(settings,field,value);prepare()
             self.assertEqual(load.call_count,1)
             self.assertEqual(analyze.call_count,6)

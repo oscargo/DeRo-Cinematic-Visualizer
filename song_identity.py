@@ -37,7 +37,10 @@ def clean_title(text):
 
 
 def _artist_key(text):
-    return ''.join(c for c in clean_text(text).casefold() if c.isalnum())
+    # Honorifics can differ between a filename/title prefix and the artist tag.
+    # Normalize only for comparison; never remove them from the displayed artist.
+    name=re.sub(r'^(?:ms|mrs|mr|miss|dr)\.?\s+','',clean_text(text),flags=re.IGNORECASE)
+    return ''.join(c for c in name.casefold() if c.isalnum())
 
 
 def filename_names(path):
@@ -103,7 +106,7 @@ def search_musicbrainz(artist,title,cancel=None):
     url='https://musicbrainz.org/ws/2/recording/?'+urlencode({'query':query,'fmt':'json','limit':10})
     _wait_for_musicbrainz(cancel)
     if cancel is not None:cancel.check()
-    request=Request(url,headers={'User-Agent':'DeRoCinematicVisualizer/0.1.32 (https://github.com/oscargo/DeRo-Cinematic-Visualizer)',
+    request=Request(url,headers={'User-Agent':'DeRoCinematicVisualizer/0.1.33 (https://github.com/oscargo/DeRo-Cinematic-Visualizer)',
                                  'Accept':'application/json'})
     with urlopen(request,timeout=10) as response:
         raw=response.read(2_000_001)
@@ -155,3 +158,10 @@ def find_names(path,cancel=None):
         if not any((s.title.casefold(),s.artist.casefold())==(suggestion.title.casefold(),suggestion.artist.casefold()) for s in result):
             result.append(suggestion)
     return result,notice
+
+
+def review_names(title,artist):
+    title=clean_title(title);artist=clean_title(artist)
+    parts=re.split(r'\s+[-–—]\s+',title,maxsplit=1)
+    if len(parts)==2 and artist and _artist_key(parts[0])==_artist_key(artist):title=clean_title(parts[1])
+    return title,artist

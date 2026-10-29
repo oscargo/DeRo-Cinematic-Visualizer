@@ -120,3 +120,11 @@ class SongIdentityTests(unittest.TestCase):
         self.assertEqual(search.call_args_list[0].args,('Wrong uploader','September'))
         self.assertEqual(search.call_args_list[1].args,('','September'))
         self.assertEqual(result[0],correct)
+
+    def test_lauryn_hill_prefix_is_not_kept_when_artist_tag_has_ms(self):
+        from song_identity import review_names
+        title,artist=review_names("Lauryn Hill - Can't Take My Eyes Off Of You (Official Audio)",'Ms. Lauryn Hill')
+        self.assertEqual(title,"Can't Take My Eyes Off Of You")
+        self.assertEqual(artist,'Ms. Lauryn Hill')
+        with patch('song_identity.read_metadata',return_value={'title':"Lauryn Hill - Can't Take My Eyes Off Of You",'artist':'Ms. Lauryn Hill'}):
+            self.assertEqual(suggest_names('song.mp3')[0].title,"Can't Take My Eyes Off Of You")
